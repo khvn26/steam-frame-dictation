@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 volatile sig_atomic_t g_stop = 0;
@@ -28,9 +29,52 @@ static void enable_quiet_mode(void) {
     }
 }
 
+static int run_command(char *const argv[]) {
+    pid_t pid = fork();
+    if (pid < 0) return -1;
+    if (pid == 0) {
+        execvp(argv[0], argv);
+        _exit(127);
+    }
+    int st = 0;
+    if (waitpid(pid, &st, 0) < 0) return -1;
+    return (WIFEXITED(st) && WEXITSTATUS(st) == 0) ? 0 : -1;
+}
+
+static int uninstall_user_service(void) {
+    const char *home = getenv("HOME");
+    if (!home || !*home) {
+        fprintf(stderr, "HOME is not set; cannot uninstall\n");
+        return 1;
+    }
+
+    char service_path[1024];
+    char install_dir[1024];
+    snprintf(service_path, sizeof(service_path), "%s/.config/systemd/user/frame-dictation.service", home);
+    snprintf(install_dir, sizeof(install_dir), "%s/.local/share/steam-frame-dictation", home);
+
+    char *disable_args[] = {"systemctl", "--user", "disable", "--now", "frame-dictation.service", NULL};
+    run_command(disable_args); // ok if service is not installed/running
+
+    unlink(service_path);
+
+    char *reload_args[] = {"systemctl", "--user", "daemon-reload", NULL};
+    run_command(reload_args);
+
+    char *rm_args[] = {"rm", "-rf", install_dir, NULL};
+    if (run_command(rm_args) != 0) {
+        fprintf(stderr, "warning: failed to remove %s\n", install_dir);
+        return 1;
+    }
+
+    printf("Uninstalled Steam Frame Dictation.\n");
+    return 0;
+}
+
 static void usage(const char *argv0) {
     fprintf(stderr,"Usage: %s [options]\n", argv0);
     fprintf(stderr,"  --version                    print build git revision\n");
+    fprintf(stderr,"  --uninstall                  disable service and remove user install\n");
     fprintf(stderr,"  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --whisper-audio-ctx N         default 0 (full)\n  --whisper-max-tokens N        default 0 (unlimited)\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --min-segment-seconds N       default 0.6\n  --min-transcribe-rms N        default 150\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --quiet                       suppress all runtime logs\n  --dry-run | --no-sounds\n");
 }
 
@@ -70,6 +114,7 @@ int main(int argc, char **argv) {
         else if(!strcmp(argv[i],"--quiet")) a.quiet=true;
         else if(!strcmp(argv[i],"--no-sounds")) a.no_sounds=true;
         else if(!strcmp(argv[i],"--version")||!strcmp(argv[i],"-V")){printf("steam-frame-dictation %s\n", GIT_REVISION); return 0;}
+        else if(!strcmp(argv[i],"--uninstall")){return uninstall_user_service();}
         else if(!strcmp(argv[i],"--help")||!strcmp(argv[i],"-h")){usage(argv[0]); return 0;}
         else if(!strcmp(argv[i],"--continuous")) {}
         else { fprintf(stderr,"unknown option: %s\n",argv[i]); usage(argv[0]); return 2; }

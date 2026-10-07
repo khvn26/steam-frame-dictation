@@ -78,7 +78,7 @@ and installs/enables the user service:
 Uninstall:
 
 ```bash
-~/.local/share/steam-frame-dictation/uninstall.sh
+~/.local/share/steam-frame-dictation/bin/steam-frame-dictation --uninstall
 ```
 
 A future release should provide a prebuilt tarball plus this installer script, but it will still need some way to run that installer on the headset.
