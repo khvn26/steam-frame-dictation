@@ -1,9 +1,3 @@
-# Python/uv
-.venv/
-__pycache__/
-*.py[cod]
-.uv-cache/
-
 # Build outputs
 native/steam-frame-dictation
 native/*.o

@@ -45,7 +45,7 @@ int setup_uinput(const char *path) {
     ioctl(fd, UI_SET_EVBIT, EV_KEY);
     int keys[] = {KEY_LEFTSHIFT,KEY_SPACE,KEY_ENTER,KEY_MINUS,KEY_EQUAL,KEY_LEFTBRACE,KEY_RIGHTBRACE,KEY_BACKSLASH,KEY_SEMICOLON,KEY_APOSTROPHE,KEY_GRAVE,KEY_COMMA,KEY_DOT,KEY_SLASH,KEY_1,KEY_2,KEY_3,KEY_4,KEY_5,KEY_6,KEY_7,KEY_8,KEY_9,KEY_0,KEY_A,KEY_B,KEY_C,KEY_D,KEY_E,KEY_F,KEY_G,KEY_H,KEY_I,KEY_J,KEY_K,KEY_L,KEY_M,KEY_N,KEY_O,KEY_P,KEY_Q,KEY_R,KEY_S,KEY_T,KEY_U,KEY_V,KEY_W,KEY_X,KEY_Y,KEY_Z};
     for(size_t i=0;i<sizeof(keys)/sizeof(keys[0]);i++) ioctl(fd, UI_SET_KEYBIT, keys[i]);
-    struct uinput_setup us; memset(&us,0,sizeof(us)); snprintf(us.name,sizeof(us.name),"frame-dictate-native"); us.id.bustype=BUS_USB; us.id.vendor=0x28de; us.id.product=0xd1c7; us.id.version=1;
+    struct uinput_setup us; memset(&us,0,sizeof(us)); snprintf(us.name,sizeof(us.name),"steam-frame-dictation"); us.id.bustype=BUS_USB; us.id.vendor=0x28de; us.id.product=0xd1c7; us.id.version=1;
     if(ioctl(fd, UI_DEV_SETUP, &us)<0 || ioctl(fd, UI_DEV_CREATE)<0) { close(fd); return -1; }
     msleep(200); return fd;
 }
