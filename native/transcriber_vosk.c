@@ -126,12 +126,15 @@ static char *transcribe_whisper_lib(app *a, const uint8_t *pcm, size_t n) {
     p.no_context = true;
     p.no_timestamps = true;
     p.single_segment = true;
+    p.audio_ctx = a->whisper_audio_ctx;
+    p.max_tokens = a->whisper_max_tokens;
     p.print_special = false;
     p.print_progress = false;
     p.print_realtime = false;
     p.print_timestamps = false;
     p.suppress_blank = true;
     p.temperature = 0.0f;
+    p.temperature_inc = 0.0f;
 
     int rc = whisper_full(a->whisper_ctx, p, f32, (int)samples);
     free(f32);

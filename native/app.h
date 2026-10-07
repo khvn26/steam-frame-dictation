@@ -43,7 +43,7 @@ typedef struct { pthread_mutex_t mu; pthread_cond_t cv; text_node *head, *tail; 
 typedef struct app {
     const char *device, *uinput, *model_path, *source, *start_sound, *end_sound;
     const char *provider, *whisper_cli, *whisper_model;
-    int key, rate, chunk_bytes, whisper_threads;
+    int key, rate, chunk_bytes, whisper_threads, whisper_audio_ctx, whisper_max_tokens;
     double actionable_pause, final_pause, silence_threshold, no_speech_timeout, preroll, warmup;
     double duck_volume, saved_volume;
     bool no_sounds, dry_run, duck_enabled, has_saved_volume;
