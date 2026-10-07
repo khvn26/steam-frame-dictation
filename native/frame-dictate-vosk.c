@@ -36,6 +36,9 @@ extern void vosk_recognizer_free(VoskRecognizer *recognizer);
 #define DEFAULT_START_SOUND "/home/steamos/.local/share/Steam/steamui/sounds/recording_start.wav"
 #define DEFAULT_END_SOUND "/home/steamos/.local/share/Steam/steamui/sounds/recording_stop.wav"
 #define DEFAULT_TRIGGER_KEY 353
+#ifndef GIT_REVISION
+#define GIT_REVISION "unknown"
+#endif
 
 static volatile sig_atomic_t g_stop = 0;
 static void on_signal(int sig) { (void)sig; g_stop = 1; }
@@ -331,6 +334,7 @@ done_recording:
 
 static void usage(const char *argv0) {
     fprintf(stderr,"Usage: %s [options]\n", argv0);
+    fprintf(stderr,"  --version                    print build git revision\n");
     fprintf(stderr,"  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --dry-run | --no-sounds\n");
 }
 
@@ -355,6 +359,7 @@ int main(int argc, char **argv) {
         else if(!strcmp(argv[i],"--end-sound")){NEEDVAL(); a.end_sound=argv[++i];}
         else if(!strcmp(argv[i],"--dry-run")) a.dry_run=true;
         else if(!strcmp(argv[i],"--no-sounds")) a.no_sounds=true;
+        else if(!strcmp(argv[i],"--version")||!strcmp(argv[i],"-V")){printf("frame-dictate-vosk-native %s\n", GIT_REVISION); return 0;}
         else if(!strcmp(argv[i],"--help")||!strcmp(argv[i],"-h")){usage(argv[0]); return 0;}
         else if(!strcmp(argv[i],"--continuous")) {}
         else { fprintf(stderr,"unknown option: %s\n",argv[i]); usage(argv[0]); return 2; }

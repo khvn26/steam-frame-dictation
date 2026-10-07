@@ -1,5 +1,6 @@
 VOSK_DIR := /home/steamos/voice-dictation/.venv/lib/python3.12/site-packages/vosk
-CFLAGS := -O3 -flto -DNDEBUG -Wall -Wextra
+GIT_REVISION := $(shell git -C .. describe --always --dirty --broken 2>/dev/null || echo unknown)
+CFLAGS := -O3 -flto -DNDEBUG -Wall -Wextra -DGIT_REVISION=\"$(GIT_REVISION)\"
 LDFLAGS := -L$(VOSK_DIR) -Wl,-rpath,$(VOSK_DIR)
 LDLIBS := -lvosk -lm -lpthread
 
