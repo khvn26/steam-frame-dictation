@@ -1,11 +1,9 @@
 [project]
-name = "frame-voice-dictation"
+name = "steam-frame-dictation"
 version = "0.1.0"
-description = "Steam Frame side-button voice dictation prototype"
+description = "Offline dictation for the native SteamOS experience on Steam Frame"
 requires-python = ">=3.12"
-dependencies = [
-  "vosk>=0.3.45",
-]
+dependencies = []
 
 [tool.uv]
 package = false

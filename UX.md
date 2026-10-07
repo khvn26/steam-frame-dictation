@@ -1,6 +1,10 @@
 # Steam Frame Dictation UX Contract
 
-This file captures the behavior we want to preserve while changing internals/STT backends.
+This file captures the behavior we want to preserve for native SteamOS dictation on Steam Frame.
+
+## Target environment
+
+The target is the stock/native SteamOS experience: Steam UI, Desktop Mode, and normal focused text fields. Frametop integration is intentionally not targeted right now because Frametop has its own voice implementation and input-routing model.
 
 ## Required operation mode
 
@@ -30,6 +34,9 @@ Only one primary mode matters:
 - silence threshold: RMS 100
 - no-speech timeout: 8.0s
 - playback ducking: enabled by default to volume 0.15 during active dictation, restored afterward; start/end chimes play at normal volume
+- Whisper provider: direct libwhisper
+- service tuning: 2 threads, audio context 768, max tokens 32
+- segment filter: minimum 0.60s, RMS 150
 - service quiet mode: enabled; normal runtime logs must not be written to logs/journal
 
 ## Feedback sounds

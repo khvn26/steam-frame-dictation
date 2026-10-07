@@ -1,6 +1,8 @@
-# Steam Frame Voice Dictation
+# Steam Frame Dictation
 
-Native offline voice dictation for Steam Frame.
+Offline dictation for the native SteamOS experience on Steam Frame.
+
+The current target is stock SteamOS: native Steam UI, Desktop Mode, and focused text fields. Frametop integration is intentionally out of scope for now because Frametop has its own companion voice project (`frame-voice`) and a specialized input relay.
 
 ## Current UX
 
@@ -11,6 +13,12 @@ Native offline voice dictation for Steam Frame.
 - Short pauses commit text silently while recording continues.
 - Long pause stops dictation and plays the SteamOS stop chime.
 - Press aux while dictating to stop immediately and send Return after the pending transcript.
+- Service mode uses `--quiet`, so dictated text and runtime logs are not written to the user journal.
+
+Tested working in:
+
+- SteamOS Desktop Mode text fields.
+- Native Steam UI text fields.
 
 See [`UX.md`](UX.md) for the behavior contract and tuned defaults.
 
@@ -22,7 +30,7 @@ The native implementation is split along the dictation architecture:
 - `native/session.c` — dictation session state machine
 - `native/audio_pw.c` — PipeWire capture via `pw-record`
 - `native/audio_policy.c` — playback ducking during active dictation
-- `native/transcriber_vosk.c` — Vosk transcription worker
+- `native/transcriber_whisper.c` — direct libwhisper transcription worker and segment filtering
 - `native/output_uinput.c` — virtual keyboard text output
 - `native/feedback.c` — SteamOS start/end sounds
 - `native/queues.c` — audio/text worker queues
@@ -34,27 +42,18 @@ The native implementation is split along the dictation architecture:
 The installed runtime binary is:
 
 ```bash
-~/voice-dictation/bin/frame-dictate-vosk-native
-```
-
-It is built from:
-
-```text
-native/frame-dictate-vosk.c
+~/voice-dictation/bin/steam-frame-dictation
 ```
 
 The binary is a build artifact and is not tracked by git.
 
-## Build
-
-The native program links against the Vosk shared library provided by the `vosk` Python wheel in the local uv environment.
-
-Install/sync dependencies:
+Version check:
 
 ```bash
-cd ~/voice-dictation
-uv sync
+~/voice-dictation/bin/steam-frame-dictation --version
 ```
+
+## Build
 
 Build and install the native binary:
 
@@ -66,8 +65,17 @@ make install
 This installs:
 
 ```text
-~/voice-dictation/bin/frame-dictate-vosk-native
+~/voice-dictation/bin/steam-frame-dictation
 ```
+
+The runtime links directly against the bundled whisper.cpp libraries under:
+
+```text
+~/voice-dictation/lib/whisper
+~/voice-dictation/include
+```
+
+No Python or uv process is used in the runtime hot path.
 
 ## Service
 
@@ -95,9 +103,19 @@ systemctl --user restart frame-dictation.service
 
 The service should use `--quiet` so dictated speech and runtime details are not stored in the systemd user journal. In quiet mode, the daemon suppresses its runtime logs and libwhisper startup logs.
 
+Current service command:
+
+```text
+/home/steamos/voice-dictation/bin/steam-frame-dictation --whisper-threads 2 --whisper-audio-ctx 768 --whisper-max-tokens 32 --quiet
+```
+
 ## Tuned defaults
 
 - aux/side trigger: evdev key code `353`
+- Whisper model: `models/whisper/ggml-tiny.en.bin`
+- Whisper threads: `2` in the service
+- Whisper audio context: `768` in the service
+- Whisper max tokens: `32` in the service
 - actionable pause: `0.35s`
 - final pause: `3.0s`
 - sample rate: `16000 Hz`
@@ -105,6 +123,7 @@ The service should use `--quiet` so dictated speech and runtime details are not 
 - preroll: `0.3s`
 - recorder warmup: `0.2s`
 - silence threshold: RMS `100`
+- segment filter: minimum `0.60s`, RMS `150`
 - playback ducking: enabled, target volume `0.15`
 - quiet mode: enabled for the service so runtime logs are suppressed
 
@@ -115,15 +134,17 @@ During active dictation, the service lowers the default audio sink using `wpctl`
 Disable ducking:
 
 ```bash
-~/voice-dictation/bin/frame-dictate-vosk-native --no-duck
+~/voice-dictation/bin/steam-frame-dictation --no-duck
 ```
 
 Tune duck volume:
 
 ```bash
-~/voice-dictation/bin/frame-dictate-vosk-native --duck-volume 0.25
+~/voice-dictation/bin/steam-frame-dictation --duck-volume 0.25
 ```
 
-## Known caveat
+## Scope and caveats
+
+This project currently targets the native SteamOS experience rather than Frametop. Frametop has its own voice implementation and input-routing model.
 
 The daemon exclusively grabs the aux input device while running. This intentionally prevents SteamOS from also handling aux, but it means default aux behaviors like pointer/passthrough shortcuts are disrupted while the service is active.

@@ -5,25 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static char *extract_text(const char *json) {
-    const char *k = strstr(json, "\"text\""); if(!k) return strdup("");
-    const char *c = strchr(k, ':'); if(!c) return strdup("");
-    const char *q = strchr(c, '"'); if(!q) return strdup("");
-    q++;
-    struct bytes out={0};
-    for (const char *p=q; *p; p++) {
-        if (*p=='"') break;
-        if (*p=='\\' && p[1]) {
-            p++;
-            char ch=*p;
-            if(ch=='n') ch='\n'; else if(ch=='t') ch='\t'; else if(ch=='r') ch='\r';
-            bytes_append(&out,&ch,1);
-        } else bytes_append(&out,p,1);
-    }
-    char nul=0; bytes_append(&out,&nul,1);
-    return (char*)out.p;
-}
-
 static char *trim_dup(const char *s) {
     while (*s == ' ' || *s == '\n' || *s == '\t' || *s == '\r') s++;
     size_t n = strlen(s);
@@ -46,26 +27,6 @@ static bool is_bad_text(const char *text) {
     if (alnum <= 1 && punct > 0) return true;
     if (!strcmp(text, "[") || !strcmp(text, "]") || !strcmp(text, "(") || !strcmp(text, ")")) return true;
     return false;
-}
-
-static char *transcribe_vosk(app *a, const uint8_t *pcm, size_t n) {
-    VoskRecognizer *r = vosk_recognizer_new(a->model, (float)a->rate);
-    vosk_recognizer_set_words(r, 0);
-    struct bytes text={0};
-    for(size_t off=0; off<n; off += (size_t)a->chunk_bytes) {
-        int len = (int)((n-off < (size_t)a->chunk_bytes) ? n-off : (size_t)a->chunk_bytes);
-        if (vosk_recognizer_accept_waveform(r, (const char*)pcm+off, len)) {
-            char *t = extract_text(vosk_recognizer_result(r));
-            if(t && *t) { if(text.n) bytes_append(&text," ",1); bytes_append(&text,t,strlen(t)); }
-            free(t);
-        }
-    }
-    char *ft = extract_text(vosk_recognizer_final_result(r));
-    if(ft && *ft) { if(text.n) bytes_append(&text," ",1); bytes_append(&text,ft,strlen(ft)); }
-    free(ft);
-    vosk_recognizer_free(r);
-    char nul=0; bytes_append(&text,&nul,1);
-    return (char*)text.p;
 }
 
 static char *transcribe_whisper_lib(app *a, const uint8_t *pcm, size_t n) {
@@ -113,8 +74,7 @@ static char *transcribe_whisper_lib(app *a, const uint8_t *pcm, size_t n) {
 }
 
 static char *transcribe_segment(app *a, const uint8_t *pcm, size_t n) {
-    if (!strcmp(a->provider, "whisper")) return transcribe_whisper_lib(a, pcm, n);
-    return transcribe_vosk(a, pcm, n);
+    return transcribe_whisper_lib(a, pcm, n);
 }
 
 void *segment_thread_main(void *vp) {

@@ -6,23 +6,8 @@
 #include <pthread.h>
 #include <signal.h>
 
-// Minimal Vosk C API declarations.
-typedef struct VoskModel VoskModel;
-typedef struct VoskRecognizer VoskRecognizer;
-typedef struct whisper_context whisper_context;
-extern void vosk_set_log_level(int log_level);
-extern VoskModel *vosk_model_new(const char *model_path);
-extern void vosk_model_free(VoskModel *model);
-extern VoskRecognizer *vosk_recognizer_new(VoskModel *model, float sample_frequency);
-extern int vosk_recognizer_accept_waveform(VoskRecognizer *recognizer, const char *data, int length);
-extern const char *vosk_recognizer_result(VoskRecognizer *recognizer);
-extern const char *vosk_recognizer_final_result(VoskRecognizer *recognizer);
-extern void vosk_recognizer_set_words(VoskRecognizer *recognizer, int words);
-extern void vosk_recognizer_free(VoskRecognizer *recognizer);
-
 #define DEFAULT_DEVICE "/dev/input/by-path/platform-gpio-keys-event"
 #define DEFAULT_UINPUT "/dev/uinput"
-#define DEFAULT_MODEL "/home/steamos/voice-dictation/models/vosk-model-small-en-us-0.15"
 #define DEFAULT_START_SOUND "/home/steamos/.local/share/Steam/steamui/sounds/recording_start.wav"
 #define DEFAULT_END_SOUND "/home/steamos/.local/share/Steam/steamui/sounds/recording_stop.wav"
 #define DEFAULT_WHISPER_MODEL "/home/steamos/voice-dictation/models/whisper/ggml-tiny.en.bin"
@@ -40,16 +25,15 @@ typedef struct { pthread_mutex_t mu; pthread_cond_t cv; seg_node *head, *tail; b
 typedef struct { pthread_mutex_t mu; pthread_cond_t cv; text_node *head, *tail; bool done; } text_queue;
 
 typedef struct app {
-    const char *device, *uinput, *model_path, *source, *start_sound, *end_sound;
-    const char *provider, *whisper_model;
+    const char *device, *uinput, *source, *start_sound, *end_sound;
+    const char *whisper_model;
     int key, rate, chunk_bytes, whisper_threads, whisper_audio_ctx, whisper_max_tokens;
     double actionable_pause, final_pause, silence_threshold, no_speech_timeout, preroll, warmup;
     double min_segment_seconds, min_transcribe_rms;
     double duck_volume, saved_volume;
     bool no_sounds, dry_run, quiet, duck_enabled, has_saved_volume;
     int ufd;
-    VoskModel *model;
-    whisper_context *whisper_ctx;
+    struct whisper_context *whisper_ctx;
     seg_queue segq;
     text_queue textq;
 } app;

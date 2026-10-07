@@ -5,9 +5,9 @@ __pycache__/
 .uv-cache/
 
 # Build outputs
-native/frame-dictate-vosk-native
+native/steam-frame-dictation
 native/*.o
-bin/frame-dictate-vosk-native
+bin/steam-frame-dictation
 
 # Large downloaded speech models and provider binaries
 models/

@@ -31,25 +31,25 @@ static void enable_quiet_mode(void) {
 static void usage(const char *argv0) {
     fprintf(stderr,"Usage: %s [options]\n", argv0);
     fprintf(stderr,"  --version                    print build git revision\n");
-    fprintf(stderr,"  --provider NAME               vosk (default) or whisper\n  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --whisper-audio-ctx N         default 0 (full)\n  --whisper-max-tokens N        default 0 (unlimited)\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --min-segment-seconds N       default 0.6\n  --min-transcribe-rms N        default 150\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --quiet                       suppress all runtime logs\n  --dry-run | --no-sounds\n");
+    fprintf(stderr,"  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --whisper-audio-ctx N         default 0 (full)\n  --whisper-max-tokens N        default 0 (unlimited)\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --min-segment-seconds N       default 0.6\n  --min-transcribe-rms N        default 150\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --quiet                       suppress all runtime logs\n  --dry-run | --no-sounds\n");
 }
 
 static app default_app(void) {
-    return (app){.device=DEFAULT_DEVICE,.uinput=DEFAULT_UINPUT,.model_path=DEFAULT_MODEL,.source=NULL,.start_sound=DEFAULT_START_SOUND,.end_sound=DEFAULT_END_SOUND,.provider="vosk",.whisper_model=DEFAULT_WHISPER_MODEL,.key=DEFAULT_TRIGGER_KEY,.rate=16000,.chunk_bytes=1600,.whisper_threads=4,.whisper_audio_ctx=0,.whisper_max_tokens=0,.actionable_pause=0.35,.final_pause=3.0,.silence_threshold=100.0,.no_speech_timeout=8.0,.preroll=0.3,.warmup=0.2,.min_segment_seconds=0.6,.min_transcribe_rms=150.0,.duck_volume=0.15,.duck_enabled=true,.ufd=-1};
+    return (app){.device=DEFAULT_DEVICE,.uinput=DEFAULT_UINPUT,.source=NULL,.start_sound=DEFAULT_START_SOUND,.end_sound=DEFAULT_END_SOUND,.whisper_model=DEFAULT_WHISPER_MODEL,.key=DEFAULT_TRIGGER_KEY,.rate=16000,.chunk_bytes=1600,.whisper_threads=4,.whisper_audio_ctx=0,.whisper_max_tokens=0,.actionable_pause=0.35,.final_pause=3.0,.silence_threshold=100.0,.no_speech_timeout=8.0,.preroll=0.3,.warmup=0.2,.min_segment_seconds=0.6,.min_transcribe_rms=150.0,.duck_volume=0.15,.duck_enabled=true,.ufd=-1};
 }
 
 int main(int argc, char **argv) {
     app a = default_app();
     for(int i=1;i<argc;i++) {
         #define NEEDVAL() if(i+1>=argc){usage(argv[0]); return 2;}
-        if(!strcmp(argv[i],"--provider")){NEEDVAL(); a.provider=argv[++i];}
+        if(!strcmp(argv[i],"--provider")){NEEDVAL(); i++; /* accepted for old service files */}
         else if(!strcmp(argv[i],"--whisper-model")){NEEDVAL(); a.whisper_model=argv[++i];}
         else if(!strcmp(argv[i],"--whisper-threads")){NEEDVAL(); a.whisper_threads=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--whisper-audio-ctx")){NEEDVAL(); a.whisper_audio_ctx=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--whisper-max-tokens")){NEEDVAL(); a.whisper_max_tokens=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--device")){NEEDVAL(); a.device=argv[++i];}
         else if(!strcmp(argv[i],"--uinput")){NEEDVAL(); a.uinput=argv[++i];}
-        else if(!strcmp(argv[i],"--model")){NEEDVAL(); a.model_path=argv[++i];}
+        else if(!strcmp(argv[i],"--model")){NEEDVAL(); i++; /* accepted for old scripts */}
         else if(!strcmp(argv[i],"--source")){NEEDVAL(); a.source=argv[++i];}
         else if(!strcmp(argv[i],"--key")){NEEDVAL(); a.key=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--rate")){NEEDVAL(); a.rate=atoi(argv[++i]);}
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
         else if(!strcmp(argv[i],"--dry-run")) a.dry_run=true;
         else if(!strcmp(argv[i],"--quiet")) a.quiet=true;
         else if(!strcmp(argv[i],"--no-sounds")) a.no_sounds=true;
-        else if(!strcmp(argv[i],"--version")||!strcmp(argv[i],"-V")){printf("frame-dictate-vosk-native %s\n", GIT_REVISION); return 0;}
+        else if(!strcmp(argv[i],"--version")||!strcmp(argv[i],"-V")){printf("steam-frame-dictation %s\n", GIT_REVISION); return 0;}
         else if(!strcmp(argv[i],"--help")||!strcmp(argv[i],"-h")){usage(argv[0]); return 0;}
         else if(!strcmp(argv[i],"--continuous")) {}
         else { fprintf(stderr,"unknown option: %s\n",argv[i]); usage(argv[0]); return 2; }
@@ -82,23 +82,13 @@ int main(int argc, char **argv) {
     sigaction(SIGTERM, &sa, NULL);
     if (a.quiet) enable_quiet_mode();
     if(!a.dry_run) { a.ufd=setup_uinput(a.uinput); if(a.ufd<0){perror("uinput"); return 1;} }
-    vosk_set_log_level(-1);
-    fprintf(stderr,"frame-dictate-vosk-native %s\n", GIT_REVISION);
-    if(!strcmp(a.provider, "vosk")) {
-        fprintf(stderr,"provider: vosk\n");
-        fprintf(stderr,"Loading Vosk model once: %s\n", a.model_path);
-        a.model=vosk_model_new(a.model_path); if(!a.model){fprintf(stderr,"failed to load model\n"); return 1;}
-    } else if(!strcmp(a.provider, "whisper")) {
-        fprintf(stderr,"provider: libwhisper\n");
-        fprintf(stderr,"Loading Whisper model once: %s\n", a.whisper_model);
-        fprintf(stderr,"whisper settings: threads=%d audio_ctx=%d max_tokens=%d\n", a.whisper_threads, a.whisper_audio_ctx, a.whisper_max_tokens);
-        struct whisper_context_params cparams = whisper_context_default_params();
-        a.whisper_ctx = whisper_init_from_file_with_params(a.whisper_model, cparams);
-        if(!a.whisper_ctx){fprintf(stderr,"failed to load whisper model\n"); return 1;}
-    } else {
-        fprintf(stderr,"unknown provider: %s\n", a.provider);
-        return 2;
-    }
+    fprintf(stderr,"steam-frame-dictation %s\n", GIT_REVISION);
+    fprintf(stderr,"provider: libwhisper\n");
+    fprintf(stderr,"Loading Whisper model once: %s\n", a.whisper_model);
+    fprintf(stderr,"whisper settings: threads=%d audio_ctx=%d max_tokens=%d\n", a.whisper_threads, a.whisper_audio_ctx, a.whisper_max_tokens);
+    struct whisper_context_params cparams = whisper_context_default_params();
+    a.whisper_ctx = whisper_init_from_file_with_params(a.whisper_model, cparams);
+    if(!a.whisper_ctx){fprintf(stderr,"failed to load whisper model\n"); return 1;}
     fprintf(stderr,"Ready. Press aux/side to start; short pauses commit silently, long pause stops. Press aux while dictating to stop early and send Return.\n");
     if(!a.no_sounds){ fprintf(stderr,"start sound: %s\nend sound:   %s\n",a.start_sound,a.end_sound); }
     fprintf(stderr,"segment filter: min %.2fs, rms %.0f\n", a.min_segment_seconds, a.min_transcribe_rms);
@@ -133,6 +123,5 @@ int main(int argc, char **argv) {
     segq_done(&a.segq); pthread_join(st,NULL); pthread_join(tt,NULL);
     if(a.ufd>=0){ ioctl(a.ufd, UI_DEV_DESTROY); close(a.ufd); }
     if(a.whisper_ctx) whisper_free(a.whisper_ctx);
-    if(a.model) vosk_model_free(a.model);
     return 0;
 }
