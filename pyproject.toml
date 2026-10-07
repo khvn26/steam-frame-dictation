@@ -1,9 +1,0 @@
-[project]
-name = "steam-frame-dictation"
-version = "0.1.0"
-description = "Offline dictation for the native SteamOS experience on Steam Frame"
-requires-python = ">=3.12"
-dependencies = []
-
-[tool.uv]
-package = false
