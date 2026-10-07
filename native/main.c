@@ -18,11 +18,11 @@ static void on_signal(int sig) { (void)sig; g_stop = 1; }
 static void usage(const char *argv0) {
     fprintf(stderr,"Usage: %s [options]\n", argv0);
     fprintf(stderr,"  --version                    print build git revision\n");
-    fprintf(stderr,"  --provider NAME               vosk (default), whisper, or whisper-cli\n  --whisper-cli PATH            default " DEFAULT_WHISPER_CLI "\n  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --whisper-audio-ctx N         default 0 (full)\n  --whisper-max-tokens N        default 0 (unlimited)\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --dry-run | --no-sounds\n");
+    fprintf(stderr,"  --provider NAME               vosk (default), whisper, or whisper-cli\n  --whisper-cli PATH            default " DEFAULT_WHISPER_CLI "\n  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --whisper-audio-ctx N         default 0 (full)\n  --whisper-max-tokens N        default 0 (unlimited)\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --min-segment-seconds N       default 0.6\n  --min-transcribe-rms N        default 150\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --dry-run | --no-sounds\n");
 }
 
 static app default_app(void) {
-    return (app){.device=DEFAULT_DEVICE,.uinput=DEFAULT_UINPUT,.model_path=DEFAULT_MODEL,.source=NULL,.start_sound=DEFAULT_START_SOUND,.end_sound=DEFAULT_END_SOUND,.provider="vosk",.whisper_cli=DEFAULT_WHISPER_CLI,.whisper_model=DEFAULT_WHISPER_MODEL,.key=DEFAULT_TRIGGER_KEY,.rate=16000,.chunk_bytes=1600,.whisper_threads=4,.whisper_audio_ctx=0,.whisper_max_tokens=0,.actionable_pause=0.35,.final_pause=3.0,.silence_threshold=100.0,.no_speech_timeout=8.0,.preroll=0.3,.warmup=0.2,.duck_volume=0.15,.duck_enabled=true,.ufd=-1};
+    return (app){.device=DEFAULT_DEVICE,.uinput=DEFAULT_UINPUT,.model_path=DEFAULT_MODEL,.source=NULL,.start_sound=DEFAULT_START_SOUND,.end_sound=DEFAULT_END_SOUND,.provider="vosk",.whisper_cli=DEFAULT_WHISPER_CLI,.whisper_model=DEFAULT_WHISPER_MODEL,.key=DEFAULT_TRIGGER_KEY,.rate=16000,.chunk_bytes=1600,.whisper_threads=4,.whisper_audio_ctx=0,.whisper_max_tokens=0,.actionable_pause=0.35,.final_pause=3.0,.silence_threshold=100.0,.no_speech_timeout=8.0,.preroll=0.3,.warmup=0.2,.min_segment_seconds=0.6,.min_transcribe_rms=150.0,.duck_volume=0.15,.duck_enabled=true,.ufd=-1};
 }
 
 int main(int argc, char **argv) {
@@ -45,6 +45,8 @@ int main(int argc, char **argv) {
         else if(!strcmp(argv[i],"--actionable-pause-seconds")){NEEDVAL(); a.actionable_pause=atof(argv[++i]);}
         else if(!strcmp(argv[i],"--pause-seconds")){NEEDVAL(); a.final_pause=atof(argv[++i]);}
         else if(!strcmp(argv[i],"--silence-threshold")){NEEDVAL(); a.silence_threshold=atof(argv[++i]);}
+        else if(!strcmp(argv[i],"--min-segment-seconds")){NEEDVAL(); a.min_segment_seconds=atof(argv[++i]);}
+        else if(!strcmp(argv[i],"--min-transcribe-rms")){NEEDVAL(); a.min_transcribe_rms=atof(argv[++i]);}
         else if(!strcmp(argv[i],"--no-speech-timeout")){NEEDVAL(); a.no_speech_timeout=atof(argv[++i]);}
         else if(!strcmp(argv[i],"--preroll-seconds")){NEEDVAL(); a.preroll=atof(argv[++i]);}
         else if(!strcmp(argv[i],"--recorder-warmup-seconds")){NEEDVAL(); a.warmup=atof(argv[++i]);}
@@ -88,6 +90,7 @@ int main(int argc, char **argv) {
     }
     fprintf(stderr,"Ready. Press aux/side to start; short pauses commit silently, long pause stops. Press aux while dictating to stop early and send Return.\n");
     if(!a.no_sounds){ fprintf(stderr,"start sound: %s\nend sound:   %s\n",a.start_sound,a.end_sound); }
+    fprintf(stderr,"segment filter: min %.2fs, rms %.0f\n", a.min_segment_seconds, a.min_transcribe_rms);
     fprintf(stderr,"playback ducking: %s", a.duck_enabled ? "enabled" : "disabled");
     if (a.duck_enabled) fprintf(stderr," (volume %.2f)", a.duck_volume);
     fprintf(stderr,"\n");

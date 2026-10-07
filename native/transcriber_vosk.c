@@ -2,6 +2,7 @@
 #include "whisper.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +36,20 @@ static char *trim_dup(const char *s) {
     if (!out) return strdup("");
     memcpy(out, s, n); out[n] = 0;
     return out;
+}
+
+static bool is_bad_text(const char *text) {
+    if (!text) return true;
+    int alnum = 0;
+    int punct = 0;
+    for (const unsigned char *p = (const unsigned char *)text; *p; p++) {
+        if (isalnum(*p)) alnum++;
+        else if (!isspace(*p)) punct++;
+    }
+    if (alnum == 0) return true;
+    if (alnum <= 1 && punct > 0) return true;
+    if (!strcmp(text, "[") || !strcmp(text, "]") || !strcmp(text, "(") || !strcmp(text, ")")) return true;
+    return false;
 }
 
 static char *transcribe_vosk(app *a, const uint8_t *pcm, size_t n) {
@@ -165,14 +180,23 @@ void *segment_thread_main(void *vp) {
     app *a = vp; struct bytes pcm={0}; bool append_return=false;
     while(segq_pop(&a->segq, &pcm, &append_return)) {
         if (pcm.n) {
-            double t0=monotonic_s();
-            char *text = transcribe_segment(a, pcm.p, pcm.n);
-            if(text && *text) {
-                fprintf(stderr,"heard: '%s' (%.2fs)\n", text, monotonic_s()-t0);
-                size_t len=strlen(text); char *with_space=malloc(len+2);
-                if(with_space) { memcpy(with_space,text,len); with_space[len]=' '; with_space[len+1]=0; textq_push(&a->textq, with_space); }
-            } else fprintf(stderr,"no transcript\n");
-            free(text); bytes_free(&pcm);
+            double duration = (double)pcm.n / 2.0 / (double)a->rate;
+            double rms = pcm_rms(pcm.p, pcm.n);
+            if (duration < a->min_segment_seconds || rms < a->min_transcribe_rms) {
+                fprintf(stderr,"drop segment: %.2fs rms %.0f\n", duration, rms);
+                bytes_free(&pcm);
+            } else {
+                double t0=monotonic_s();
+                char *text = transcribe_segment(a, pcm.p, pcm.n);
+                if(text && *text && !is_bad_text(text)) {
+                    fprintf(stderr,"heard: '%s' (%.2fs)\n", text, monotonic_s()-t0);
+                    size_t len=strlen(text); char *with_space=malloc(len+2);
+                    if(with_space) { memcpy(with_space,text,len); with_space[len]=' '; with_space[len+1]=0; textq_push(&a->textq, with_space); }
+                } else if (text && *text) {
+                    fprintf(stderr,"drop transcript: '%s'\n", text);
+                } else fprintf(stderr,"no transcript\n");
+                free(text); bytes_free(&pcm);
+            }
         }
         if (append_return) textq_push(&a->textq, strdup("\n"));
     }
