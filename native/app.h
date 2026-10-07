@@ -25,7 +25,6 @@ extern void vosk_recognizer_free(VoskRecognizer *recognizer);
 #define DEFAULT_MODEL "/home/steamos/voice-dictation/models/vosk-model-small-en-us-0.15"
 #define DEFAULT_START_SOUND "/home/steamos/.local/share/Steam/steamui/sounds/recording_start.wav"
 #define DEFAULT_END_SOUND "/home/steamos/.local/share/Steam/steamui/sounds/recording_stop.wav"
-#define DEFAULT_WHISPER_CLI "/home/steamos/voice-dictation/bin/whisper-cli"
 #define DEFAULT_WHISPER_MODEL "/home/steamos/voice-dictation/models/whisper/ggml-tiny.en.bin"
 #define DEFAULT_TRIGGER_KEY 353
 #ifndef GIT_REVISION
@@ -42,7 +41,7 @@ typedef struct { pthread_mutex_t mu; pthread_cond_t cv; text_node *head, *tail; 
 
 typedef struct app {
     const char *device, *uinput, *model_path, *source, *start_sound, *end_sound;
-    const char *provider, *whisper_cli, *whisper_model;
+    const char *provider, *whisper_model;
     int key, rate, chunk_bytes, whisper_threads, whisper_audio_ctx, whisper_max_tokens;
     double actionable_pause, final_pause, silence_threshold, no_speech_timeout, preroll, warmup;
     double min_segment_seconds, min_transcribe_rms;
