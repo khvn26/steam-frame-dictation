@@ -14,6 +14,20 @@ Native offline voice dictation for Steam Frame.
 
 See [`UX.md`](UX.md) for the behavior contract and tuned defaults.
 
+## Architecture
+
+The native implementation is split along the dictation architecture:
+
+- `native/main.c` — options, startup, trigger loop, service lifecycle
+- `native/session.c` — dictation session state machine
+- `native/audio_pw.c` — PipeWire capture via `pw-record`
+- `native/transcriber_vosk.c` — Vosk transcription worker
+- `native/output_uinput.c` — virtual keyboard text output
+- `native/feedback.c` — SteamOS start/end sounds
+- `native/queues.c` — audio/text worker queues
+- `native/util.c` — byte buffers, timing, PCM RMS
+- `native/app.h` — shared interfaces and configuration
+
 ## Main binary
 
 The installed runtime binary is:
