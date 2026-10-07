@@ -53,6 +53,12 @@ Version check:
 ~/voice-dictation/bin/steam-frame-dictation --version
 ```
 
+## Installation status
+
+This is currently a source/developer install. Installation requires shell/console access to the Frame so files and the user systemd service can be installed. It has been tested on a Frame with Developer Mode enabled; installation without Developer Mode has not been tested.
+
+A future release should provide a prebuilt tarball plus installer script, but it will still need some way to run that installer on the headset.
+
 ## Build
 
 Build and install the native binary:
@@ -146,5 +152,7 @@ Tune duck volume:
 ## Scope and caveats
 
 This project currently targets the native SteamOS experience rather than Frametop. Frametop has its own voice implementation and input-routing model.
+
+Installation currently requires shell/console access. It has not been tested on a Frame without Developer Mode enabled.
 
 The daemon exclusively grabs the aux input device while running. This intentionally prevents SteamOS from also handling aux, but it means default aux behaviors like pointer/passthrough shortcuts are disrupted while the service is active.
