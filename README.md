@@ -2,7 +2,7 @@
 
 Offline dictation for the native SteamOS experience on Steam Frame.
 
-The current target is stock SteamOS: native Steam UI, Desktop Mode, and focused text fields. Frametop integration is intentionally out of scope for now because Frametop has its own companion voice project (`frame-voice`) and a specialized input relay.
+The current target is stock SteamOS: native Steam UI, Desktop Mode, and focused text fields. Frametop is not officially supported yet and has not been tested.
 
 ## Current UX
 
@@ -150,8 +150,6 @@ Tune duck volume:
 ```
 
 ## Scope and caveats
-
-This project currently targets the native SteamOS experience rather than Frametop. Frametop has its own voice implementation and input-routing model.
 
 Installation currently requires console access. It has only been tested on a Frame with Developer Mode enabled; installation without Developer Mode has not been tested.
 

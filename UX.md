@@ -4,7 +4,7 @@ This file captures the behavior we want to preserve for native SteamOS dictation
 
 ## Target environment
 
-The target is the stock/native SteamOS experience: Steam UI, Desktop Mode, and normal focused text fields. Frametop integration is intentionally not targeted right now because Frametop has its own voice implementation and input-routing model.
+The target is the stock/native SteamOS experience: Steam UI, Desktop Mode, and normal focused text fields.
 
 ## Required operation mode
 
