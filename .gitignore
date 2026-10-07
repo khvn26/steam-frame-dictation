@@ -6,6 +6,7 @@ __pycache__/
 
 # Build outputs
 native/frame-dictate-vosk-native
+native/*.o
 bin/frame-dictate-vosk-native
 
 # Large downloaded speech models
