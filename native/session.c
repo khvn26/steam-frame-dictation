@@ -21,8 +21,9 @@ void run_utterance(app *a, int efd) {
     bool in_segment=false, speech_seen=false; double last_voice=0, started=monotonic_s();
     while(!g_stop) {
         struct pollfd pfds[2] = {{.fd=afd,.events=POLLIN},{.fd=efd,.events=POLLIN}};
-        int pr = poll(pfds, 2, -1);
+        int pr = poll(pfds, 2, 500);
         if (pr < 0) { if(errno==EINTR) continue; break; }
+        if (pr == 0) continue;
         if (pfds[1].revents & POLLIN) {
             struct input_event ev;
             if (read(efd, &ev, sizeof(ev)) == sizeof(ev)) {

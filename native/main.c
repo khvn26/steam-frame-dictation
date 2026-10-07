@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <linux/input.h>
 #include <linux/uinput.h>
+#include <errno.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,7 +59,12 @@ int main(int argc, char **argv) {
         else if(!strcmp(argv[i],"--continuous")) {}
         else { fprintf(stderr,"unknown option: %s\n",argv[i]); usage(argv[0]); return 2; }
     }
-    signal(SIGINT,on_signal); signal(SIGTERM,on_signal);
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = on_signal;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
     if(!a.dry_run) { a.ufd=setup_uinput(a.uinput); if(a.ufd<0){perror("uinput"); return 1;} }
     vosk_set_log_level(-1);
     fprintf(stderr,"frame-dictate-vosk-native %s\n", GIT_REVISION);
@@ -86,11 +93,26 @@ int main(int argc, char **argv) {
     fprintf(stderr,"\n");
     segq_init(&a.segq); textq_init(&a.textq);
     pthread_t st, tt; pthread_create(&st,NULL,segment_thread_main,&a); pthread_create(&tt,NULL,type_thread_main,&a);
-    int efd=open(a.device,O_RDONLY); if(efd<0){perror("open input"); return 1;}
+    int efd=open(a.device,O_RDONLY|O_NONBLOCK); if(efd<0){perror("open input"); return 1;}
     int one=1; ioctl(efd, EVIOCGRAB, &one);
     struct input_event ev;
-    while(!g_stop && read(efd,&ev,sizeof(ev))==sizeof(ev)) {
-        if(ev.type==EV_KEY && ev.code==a.key && ev.value==1) run_utterance(&a, efd);
+    while(!g_stop) {
+        struct pollfd pfd = {.fd = efd, .events = POLLIN};
+        int pr = poll(&pfd, 1, 500);
+        if (pr < 0) {
+            if (errno == EINTR) continue;
+            perror("poll input");
+            break;
+        }
+        if (pr == 0 || !(pfd.revents & POLLIN)) continue;
+        while (read(efd,&ev,sizeof(ev))==sizeof(ev)) {
+            if(ev.type==EV_KEY && ev.code==a.key && ev.value==1) run_utterance(&a, efd);
+            if (g_stop) break;
+        }
+        if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+            perror("read input");
+            break;
+        }
     }
     one=0; ioctl(efd, EVIOCGRAB, &one); close(efd);
     segq_done(&a.segq); pthread_join(st,NULL); pthread_join(tt,NULL);
