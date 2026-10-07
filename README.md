@@ -107,7 +107,7 @@ systemctl --user restart frame-dictation.service
 
 ## Playback ducking
 
-During active dictation, the service lowers the default audio sink using `wpctl`, then restores the previous volume when dictation stops. This reduces currently playing audio leaking into the microphone.
+During active dictation, the service lowers the default audio sink using `wpctl`, then restores the previous volume when dictation stops. This reduces currently playing audio leaking into the microphone. The start and end chimes play at the normal pre-duck volume.
 
 Disable ducking:
 
