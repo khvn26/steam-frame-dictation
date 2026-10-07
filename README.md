@@ -1,55 +1,94 @@
-# Steam Frame dictation prototype
+# Steam Frame Voice Dictation
 
-This is a cleaner local dictation prototype for Steam Frame.
+Native offline voice dictation for Steam Frame.
 
-## Files
+## Current UX
 
-- `bin/frame-dictate` — dependency-free Python prototype
+- Idle by default.
+- Press aux/side to start dictation.
+- Recorder warms up before the start chime.
+- SteamOS start chime means it is safe to speak.
+- Short pauses commit text silently while recording continues.
+- Long pause stops dictation and plays the SteamOS stop chime.
+- Press aux while dictating to stop immediately and send Return after the pending transcript.
 
-## What works now
+See [`UX.md`](UX.md) for the behavior contract and tuned defaults.
 
-- Watches the likely aux/side button: `/dev/input/by-path/platform-gpio-keys-event`, key code `353` (`KEY_SELECT`).
-- Records from PipeWire while the button is held.
-- Can type text through `/dev/uinput` as a virtual keyboard.
-- Has a pluggable transcription command via `DICTATE_TRANSCRIBE_CMD`.
+## Main binary
 
-## Commands
-
-Monitor the side/aux button:
-
-```bash
-~/voice-dictation/bin/frame-dictate monitor
-```
-
-Test virtual keyboard typing into the focused UI/app:
+The installed runtime binary is:
 
 ```bash
-~/voice-dictation/bin/frame-dictate type 'hello from voice dictation'
+~/voice-dictation/bin/frame-dictate-vosk-native
 ```
 
-Listen: hold side/aux to record; release to transcribe and type:
+It is built from:
+
+```text
+native/frame-dictate-vosk.c
+```
+
+The binary is a build artifact and is not tracked by git.
+
+## Build
+
+The native program links against the Vosk shared library provided by the `vosk` Python wheel in the local uv environment.
+
+Install/sync dependencies:
 
 ```bash
-~/voice-dictation/bin/frame-dictate listen
+cd ~/voice-dictation
+uv sync
 ```
 
-Until a transcription backend is configured, recordings are kept in `/tmp` and no text is inserted.
-
-## Transcription backend hook
-
-Set:
+Build and install the native binary:
 
 ```bash
-export DICTATE_TRANSCRIBE_CMD='command-that-prints-transcript {audio}'
+cd ~/voice-dictation/native
+make install
 ```
 
-`{audio}` is replaced with the recorded WAV path.
+This installs:
 
-Example stub for testing:
+```text
+~/voice-dictation/bin/frame-dictate-vosk-native
+```
+
+## Service
+
+The user service is:
+
+```text
+~/.config/systemd/user/frame-dictation.service
+```
+
+Common commands:
 
 ```bash
-export DICTATE_TRANSCRIBE_CMD='echo hello world'
-~/voice-dictation/bin/frame-dictate listen
+systemctl --user status frame-dictation.service
+journalctl --user -u frame-dictation.service -f
+systemctl --user restart frame-dictation.service
+systemctl --user stop frame-dictation.service
+systemctl --user start frame-dictation.service
 ```
 
-Then hold/release the side button; it should type `hello world`.
+After rebuilding:
+
+```bash
+systemctl --user restart frame-dictation.service
+```
+
+## Tuned defaults
+
+- aux/side trigger: evdev key code `353`
+- actionable pause: `0.35s`
+- final pause: `3.0s`
+- sample rate: `16000 Hz`
+- chunk size: `1600 bytes`
+- preroll: `0.3s`
+- recorder warmup: `0.2s`
+- silence threshold: RMS `100`
+
+## Known caveat
+
+The daemon exclusively grabs the aux input device while running. This intentionally prevents SteamOS from also handling aux, but it means default aux behaviors like pointer/passthrough shortcuts are disrupted while the service is active.
