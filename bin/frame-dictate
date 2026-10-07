@@ -1,0 +1,286 @@
+#!/usr/bin/env python3
+"""Steam Frame voice-dictation prototype.
+
+No Python dependencies. Provides:
+  frame-dictate monitor          # watch the side/aux key
+  frame-dictate type 'hello'     # type text through /dev/uinput
+  frame-dictate listen           # hold side/aux to record, transcribe, type
+
+Transcription is pluggable for now:
+  export DICTATE_TRANSCRIBE_CMD='your-command {audio}'
+The command should print only the text to insert.
+"""
+
+from __future__ import annotations
+
+import argparse
+import array
+import fcntl
+import os
+import shlex
+import signal
+import struct
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+EV_SYN = 0
+EV_KEY = 1
+SYN_REPORT = 0
+
+# Linux key codes.
+KEY_SIDE_DEFAULT = 353  # KEY_SELECT on Steam Frame gpio-keys; likely aux/side button.
+KEY_LEFTSHIFT = 42
+KEY_SPACE = 57
+KEY_ENTER = 28
+KEY_BACKSPACE = 14
+KEY_TAB = 15
+
+UI_SET_EVBIT = 0x40045564
+UI_SET_KEYBIT = 0x40045565
+UI_DEV_CREATE = 0x5501
+UI_DEV_DESTROY = 0x5502
+EVIOCGRAB = 0x40044590
+BUS_USB = 0x03
+
+DEFAULT_EVENT = "/dev/input/by-path/platform-gpio-keys-event"
+DEFAULT_WAYLAND = "gamescope-0"
+
+CHAR_KEYS = {
+    "a": 30, "b": 48, "c": 46, "d": 32, "e": 18, "f": 33, "g": 34, "h": 35, "i": 23,
+    "j": 36, "k": 37, "l": 38, "m": 50, "n": 49, "o": 24, "p": 25, "q": 16, "r": 19,
+    "s": 31, "t": 20, "u": 22, "v": 47, "w": 17, "x": 45, "y": 21, "z": 44,
+    "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8, "8": 9, "9": 10, "0": 11,
+    "-": 12, "=": 13, "[": 26, "]": 27, "\\": 43, ";": 39, "'": 40, "`": 41,
+    ",": 51, ".": 52, "/": 53,
+}
+SHIFT_CHARS = {
+    "A": "a", "B": "b", "C": "c", "D": "d", "E": "e", "F": "f", "G": "g", "H": "h", "I": "i",
+    "J": "j", "K": "k", "L": "l", "M": "m", "N": "n", "O": "o", "P": "p", "Q": "q", "R": "r",
+    "S": "s", "T": "t", "U": "u", "V": "v", "W": "w", "X": "x", "Y": "y", "Z": "z",
+    "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0",
+    "_": "-", "+": "=", "{": "[", "}": "]", "|": "\\", ":": ";", '"': "'", "~": "`", "<": ",", ">": ".", "?": "/",
+}
+SPECIAL = {" ": KEY_SPACE, "\n": KEY_ENTER, "\t": KEY_TAB, "\b": KEY_BACKSPACE}
+
+
+def input_event(ev_type: int, code: int, value: int) -> bytes:
+    # struct input_event: timeval {long sec, long usec}, ushort type, ushort code, int value
+    return struct.pack("llHHi", 0, 0, ev_type, code, value)
+
+
+class UInputKeyboard:
+    def __init__(self, path: str = "/dev/uinput"):
+        self.fd = os.open(path, os.O_WRONLY | os.O_NONBLOCK)
+        fcntl.ioctl(self.fd, UI_SET_EVBIT, EV_KEY)
+        for code in set(CHAR_KEYS.values()) | set(SPECIAL.values()) | {KEY_LEFTSHIFT}:
+            fcntl.ioctl(self.fd, UI_SET_KEYBIT, code)
+        name = b"frame-dictate-virtual-keyboard"
+        uidev = struct.pack("80sHHHHI" + "i" * 256, name, BUS_USB, 0x28DE, 0xD1C7, 1, 0, *([0] * 256))
+        os.write(self.fd, uidev)
+        fcntl.ioctl(self.fd, UI_DEV_CREATE)
+        time.sleep(0.2)
+
+    def close(self):
+        try:
+            fcntl.ioctl(self.fd, UI_DEV_DESTROY)
+        finally:
+            os.close(self.fd)
+
+    def emit(self, ev_type: int, code: int, value: int):
+        os.write(self.fd, input_event(ev_type, code, value))
+
+    def syn(self):
+        self.emit(EV_SYN, SYN_REPORT, 0)
+
+    def key(self, code: int, down: bool):
+        self.emit(EV_KEY, code, 1 if down else 0)
+        self.syn()
+        time.sleep(0.008)
+
+    def tap(self, code: int, shift: bool = False):
+        if shift:
+            self.key(KEY_LEFTSHIFT, True)
+        self.key(code, True)
+        self.key(code, False)
+        if shift:
+            self.key(KEY_LEFTSHIFT, False)
+
+    def type_text(self, text: str):
+        for ch in text:
+            if ch in SPECIAL:
+                self.tap(SPECIAL[ch])
+            elif ch in CHAR_KEYS:
+                self.tap(CHAR_KEYS[ch])
+            elif ch in SHIFT_CHARS:
+                self.tap(CHAR_KEYS[SHIFT_CHARS[ch]], shift=True)
+            else:
+                print(f"warning: cannot type character {ch!r}; skipping", file=sys.stderr)
+
+
+def read_key_events(dev: str, grab: bool = False):
+    event_struct = struct.Struct("llHHi")
+    with open(dev, "rb", buffering=0) as f:
+        if grab:
+            # Exclusive evdev grab: prevents SteamOS/gamescope from also acting on
+            # this button while the dictation listener is running.
+            fcntl.ioctl(f.fileno(), EVIOCGRAB, 1)
+        try:
+            while True:
+                data = f.read(event_struct.size)
+                if not data:
+                    continue
+                _sec, _usec, ev_type, code, value = event_struct.unpack(data)
+                if ev_type == EV_KEY:
+                    yield code, value
+        finally:
+            if grab:
+                try:
+                    fcntl.ioctl(f.fileno(), EVIOCGRAB, 0)
+                except OSError:
+                    pass
+
+
+def monitor(args):
+    grab_msg = " with exclusive grab" if args.grab else ""
+    print(f"Monitoring {args.device}{grab_msg}; press buttons now. Ctrl-C to stop.")
+    for code, value in read_key_events(args.device, grab=args.grab):
+        state = {0: "up", 1: "down", 2: "repeat"}.get(value, str(value))
+        print(f"key code={code} {state}", flush=True)
+
+
+def type_cmd(args):
+    kb = UInputKeyboard(args.uinput)
+    try:
+        kb.type_text(args.text)
+    finally:
+        kb.close()
+
+
+def start_recording(audio_path: str, source: str | None):
+    env = os.environ.copy()
+    env.setdefault("XDG_RUNTIME_DIR", "/run/user/1000")
+    cmd = ["pw-record", "--rate", "16000", "--channels", "1", "--format", "s16"]
+    if source:
+        cmd += ["--target", source]
+    cmd.append(audio_path)
+    return subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+
+
+def stop_recording(proc: subprocess.Popen):
+    if proc.poll() is None:
+        proc.send_signal(signal.SIGINT)
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            proc.terminate()
+            try:
+                proc.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+    if proc.stderr:
+        err = proc.stderr.read().strip()
+        if err:
+            print(err, file=sys.stderr)
+
+
+def transcribe(audio_path: str) -> str:
+    tmpl = os.environ.get("DICTATE_TRANSCRIBE_CMD")
+    if not tmpl:
+        print(f"No DICTATE_TRANSCRIBE_CMD set; recording kept at {audio_path}", file=sys.stderr)
+        return ""
+    cmd = tmpl.replace("{audio}", shlex.quote(audio_path))
+    out = subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.PIPE)
+    return out.strip()
+
+
+def listen(args):
+    if args.toggle:
+        print(f"Listening on {args.device} key={args.key}. Press aux/side to start, press again to stop/type. Ctrl-C to stop.")
+    else:
+        print(f"Listening on {args.device} key={args.key}. Hold aux/side to record; release to type. Ctrl-C to stop.")
+    recording = None
+    audio_path = None
+    started_at = 0.0
+    kb = None if args.dry_run else UInputKeyboard(args.uinput)
+
+    def begin_recording():
+        nonlocal recording, audio_path, started_at
+        fd, audio_path = tempfile.mkstemp(prefix="dictate-", suffix=".wav", dir=args.tmpdir)
+        os.close(fd)
+        started_at = time.monotonic()
+        print(f"recording -> {audio_path}", flush=True)
+        recording = start_recording(audio_path, args.source)
+
+    def end_recording():
+        nonlocal recording, audio_path, started_at
+        assert recording is not None
+        duration = time.monotonic() - started_at
+        print(f"stopping after {duration:.2f}s", flush=True)
+        stop_recording(recording)
+        recording = None
+        assert audio_path is not None
+        text = transcribe(audio_path)
+        if text:
+            print(f"text: {text!r}", flush=True)
+            if kb:
+                kb.type_text(text)
+        else:
+            print("no transcript", flush=True)
+        audio_path = None
+
+    try:
+        for code, value in read_key_events(args.device, grab=not args.no_grab):
+            if code != args.key:
+                continue
+            if args.toggle:
+                if value == 1:
+                    if recording is None:
+                        begin_recording()
+                    else:
+                        end_recording()
+            else:
+                if value == 1 and recording is None:
+                    begin_recording()
+                elif value == 0 and recording is not None:
+                    end_recording()
+    finally:
+        if recording is not None:
+            stop_recording(recording)
+        if kb:
+            kb.close()
+
+
+def main():
+    p = argparse.ArgumentParser()
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    m = sub.add_parser("monitor")
+    m.add_argument("--device", default=DEFAULT_EVENT)
+    m.add_argument("--grab", action="store_true", help="exclusively grab the input device while monitoring")
+    m.set_defaults(func=monitor)
+
+    t = sub.add_parser("type")
+    t.add_argument("text")
+    t.add_argument("--uinput", default="/dev/uinput")
+    t.set_defaults(func=type_cmd)
+
+    l = sub.add_parser("listen")
+    l.add_argument("--device", default=DEFAULT_EVENT)
+    l.add_argument("--key", type=int, default=KEY_SIDE_DEFAULT)
+    l.add_argument("--source", default=os.environ.get("DICTATE_SOURCE"))
+    l.add_argument("--tmpdir", default=os.environ.get("TMPDIR", "/tmp"))
+    l.add_argument("--uinput", default="/dev/uinput")
+    l.add_argument("--dry-run", action="store_true")
+    l.add_argument("--no-grab", action="store_true", help="do not exclusively grab the aux/side button input device")
+    l.add_argument("--toggle", action="store_true", help="press once to start recording, press again to stop/type")
+    l.set_defaults(func=listen)
+
+    args = p.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

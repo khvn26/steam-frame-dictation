@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec /home/steamos/.local/bin/uv run --project "$ROOT" python "$ROOT/scripts/frame_dictate_vosk.py" "$@"

@@ -1,0 +1,16 @@
+# Python/uv
+.venv/
+__pycache__/
+*.py[cod]
+.uv-cache/
+
+# Build outputs
+native/frame-dictate-vosk-native
+bin/frame-dictate-vosk-native
+
+# Large downloaded speech models
+models/
+
+# Logs/temp
+*.log
+*.tmp
