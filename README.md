@@ -93,7 +93,7 @@ After rebuilding:
 systemctl --user restart frame-dictation.service
 ```
 
-The service should use `--quiet` so dictated text is not stored in the systemd user journal. In quiet mode, transcript and typed text log lines are redacted.
+The service should use `--quiet` so dictated speech and runtime details are not stored in the systemd user journal. In quiet mode, the daemon suppresses its runtime logs and libwhisper startup logs.
 
 ## Tuned defaults
 
@@ -106,7 +106,7 @@ The service should use `--quiet` so dictated text is not stored in the systemd u
 - recorder warmup: `0.2s`
 - silence threshold: RMS `100`
 - playback ducking: enabled, target volume `0.15`
-- quiet mode: enabled for the service so dictated text is redacted from logs
+- quiet mode: enabled for the service so runtime logs are suppressed
 
 ## Playback ducking
 

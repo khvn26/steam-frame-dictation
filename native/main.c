@@ -15,10 +15,23 @@
 volatile sig_atomic_t g_stop = 0;
 static void on_signal(int sig) { (void)sig; g_stop = 1; }
 
+static void quiet_log_callback(enum ggml_log_level level, const char *text, void *user_data) {
+    (void)level; (void)text; (void)user_data;
+}
+
+static void enable_quiet_mode(void) {
+    whisper_log_set(quiet_log_callback, NULL);
+    int fd = open("/dev/null", O_WRONLY);
+    if (fd >= 0) {
+        dup2(fd, STDERR_FILENO);
+        if (fd != STDERR_FILENO) close(fd);
+    }
+}
+
 static void usage(const char *argv0) {
     fprintf(stderr,"Usage: %s [options]\n", argv0);
     fprintf(stderr,"  --version                    print build git revision\n");
-    fprintf(stderr,"  --provider NAME               vosk (default) or whisper\n  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --whisper-audio-ctx N         default 0 (full)\n  --whisper-max-tokens N        default 0 (unlimited)\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --min-segment-seconds N       default 0.6\n  --min-transcribe-rms N        default 150\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --quiet                       do not log dictated text\n  --dry-run | --no-sounds\n");
+    fprintf(stderr,"  --provider NAME               vosk (default) or whisper\n  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --whisper-audio-ctx N         default 0 (full)\n  --whisper-max-tokens N        default 0 (unlimited)\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --min-segment-seconds N       default 0.6\n  --min-transcribe-rms N        default 150\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --quiet                       suppress all runtime logs\n  --dry-run | --no-sounds\n");
 }
 
 static app default_app(void) {
@@ -67,6 +80,7 @@ int main(int argc, char **argv) {
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
+    if (a.quiet) enable_quiet_mode();
     if(!a.dry_run) { a.ufd=setup_uinput(a.uinput); if(a.ufd<0){perror("uinput"); return 1;} }
     vosk_set_log_level(-1);
     fprintf(stderr,"frame-dictate-vosk-native %s\n", GIT_REVISION);
