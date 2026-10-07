@@ -21,6 +21,7 @@ The native implementation is split along the dictation architecture:
 - `native/main.c` — options, startup, trigger loop, service lifecycle
 - `native/session.c` — dictation session state machine
 - `native/audio_pw.c` — PipeWire capture via `pw-record`
+- `native/audio_policy.c` — playback ducking during active dictation
 - `native/transcriber_vosk.c` — Vosk transcription worker
 - `native/output_uinput.c` — virtual keyboard text output
 - `native/feedback.c` — SteamOS start/end sounds
@@ -102,6 +103,23 @@ systemctl --user restart frame-dictation.service
 - preroll: `0.3s`
 - recorder warmup: `0.2s`
 - silence threshold: RMS `100`
+- playback ducking: enabled, target volume `0.15`
+
+## Playback ducking
+
+During active dictation, the service lowers the default audio sink using `wpctl`, then restores the previous volume when dictation stops. This reduces currently playing audio leaking into the microphone.
+
+Disable ducking:
+
+```bash
+~/voice-dictation/bin/frame-dictate-vosk-native --no-duck
+```
+
+Tune duck volume:
+
+```bash
+~/voice-dictation/bin/frame-dictate-vosk-native --duck-volume 0.25
+```
 
 ## Known caveat
 

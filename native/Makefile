@@ -4,7 +4,7 @@ CFLAGS := -O3 -flto -DNDEBUG -Wall -Wextra -DGIT_REVISION=\"$(GIT_REVISION)\"
 LDFLAGS := -L$(VOSK_DIR) -Wl,-rpath,$(VOSK_DIR)
 LDLIBS := -lvosk -lm -lpthread
 
-SOURCES := main.c util.c queues.c feedback.c output_uinput.c audio_pw.c transcriber_vosk.c session.c
+SOURCES := main.c util.c queues.c feedback.c output_uinput.c audio_pw.c audio_policy.c transcriber_vosk.c session.c
 OBJECTS := $(SOURCES:.c=.o)
 
 all: frame-dictate-vosk-native

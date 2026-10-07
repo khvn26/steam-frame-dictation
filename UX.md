@@ -29,6 +29,7 @@ Only one primary mode matters:
 - recorder warmup before start chime: 0.2s
 - silence threshold: RMS 100
 - no-speech timeout: 8.0s
+- playback ducking: enabled by default to volume 0.15 during active dictation, restored afterward
 
 ## Feedback sounds
 
@@ -41,6 +42,7 @@ Only one primary mode matters:
 - Near-zero idle CPU.
 - Idle should block on input events, not poll actively.
 - Do not keep microphone capture active while idle.
+- Playback ducking should only apply during active dictation and must restore the previous volume afterward.
 - Keep STT model loaded once while service is running.
 - Do not spawn Python/uv in the runtime hot path.
 - Transcription and typing must be queued so new speech is not lost while previous text is being processed.

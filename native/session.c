@@ -9,7 +9,8 @@
 #include <unistd.h>
 
 void run_utterance(app *a, int efd) {
-    int afd=-1; pid_t recpid=start_pw_record(a,&afd); if(recpid<0){ perror("pw-record"); return; }
+    audio_policy_begin(a);
+    int afd=-1; pid_t recpid=start_pw_record(a,&afd); if(recpid<0){ perror("pw-record"); audio_policy_end(a); return; }
     if(a->warmup>0) usleep((useconds_t)(a->warmup*1000000.0));
     if(!a->no_sounds) play_sound(a->start_sound,true);
     fprintf(stderr,"listening...\n");
@@ -63,5 +64,5 @@ void run_utterance(app *a, int efd) {
 done_recording:
     if(in_segment && segment.n) { fprintf(stderr,"commit (final): %.2fs audio\n", (double)segment.n/2.0/(double)a->rate); segq_push(&a->segq,&segment,false); }
     if(!a->no_sounds) play_sound(a->end_sound,false);
-    bytes_free(&segment); bytes_free(&preroll); free(buf); close(afd); stop_child(recpid);
+    bytes_free(&segment); bytes_free(&preroll); free(buf); close(afd); stop_child(recpid); audio_policy_end(a);
 }

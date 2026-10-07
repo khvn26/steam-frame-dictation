@@ -41,7 +41,8 @@ typedef struct app {
     const char *device, *uinput, *model_path, *source, *start_sound, *end_sound;
     int key, rate, chunk_bytes;
     double actionable_pause, final_pause, silence_threshold, no_speech_timeout, preroll, warmup;
-    bool no_sounds, dry_run;
+    double duck_volume, saved_volume;
+    bool no_sounds, dry_run, duck_enabled, has_saved_volume;
     int ufd;
     VoskModel *model;
     seg_queue segq;
@@ -77,6 +78,10 @@ void *type_thread_main(void *vp);
 // audio capture
 int start_pw_record(app *a, int *outfd);
 void stop_child(int pid);
+
+// audio policy
+void audio_policy_begin(app *a);
+void audio_policy_end(app *a);
 
 // transcriber
 void *segment_thread_main(void *vp);

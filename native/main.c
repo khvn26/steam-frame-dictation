@@ -15,11 +15,11 @@ static void on_signal(int sig) { (void)sig; g_stop = 1; }
 static void usage(const char *argv0) {
     fprintf(stderr,"Usage: %s [options]\n", argv0);
     fprintf(stderr,"  --version                    print build git revision\n");
-    fprintf(stderr,"  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --dry-run | --no-sounds\n");
+    fprintf(stderr,"  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --dry-run | --no-sounds\n");
 }
 
 static app default_app(void) {
-    return (app){.device=DEFAULT_DEVICE,.uinput=DEFAULT_UINPUT,.model_path=DEFAULT_MODEL,.source=NULL,.start_sound=DEFAULT_START_SOUND,.end_sound=DEFAULT_END_SOUND,.key=DEFAULT_TRIGGER_KEY,.rate=16000,.chunk_bytes=1600,.actionable_pause=0.35,.final_pause=3.0,.silence_threshold=100.0,.no_speech_timeout=8.0,.preroll=0.3,.warmup=0.2,.ufd=-1};
+    return (app){.device=DEFAULT_DEVICE,.uinput=DEFAULT_UINPUT,.model_path=DEFAULT_MODEL,.source=NULL,.start_sound=DEFAULT_START_SOUND,.end_sound=DEFAULT_END_SOUND,.key=DEFAULT_TRIGGER_KEY,.rate=16000,.chunk_bytes=1600,.actionable_pause=0.35,.final_pause=3.0,.silence_threshold=100.0,.no_speech_timeout=8.0,.preroll=0.3,.warmup=0.2,.duck_volume=0.15,.duck_enabled=true,.ufd=-1};
 }
 
 int main(int argc, char **argv) {
@@ -41,6 +41,8 @@ int main(int argc, char **argv) {
         else if(!strcmp(argv[i],"--recorder-warmup-seconds")){NEEDVAL(); a.warmup=atof(argv[++i]);}
         else if(!strcmp(argv[i],"--start-sound")){NEEDVAL(); a.start_sound=argv[++i];}
         else if(!strcmp(argv[i],"--end-sound")){NEEDVAL(); a.end_sound=argv[++i];}
+        else if(!strcmp(argv[i],"--duck-volume")){NEEDVAL(); a.duck_volume=atof(argv[++i]);}
+        else if(!strcmp(argv[i],"--no-duck")) a.duck_enabled=false;
         else if(!strcmp(argv[i],"--dry-run")) a.dry_run=true;
         else if(!strcmp(argv[i],"--no-sounds")) a.no_sounds=true;
         else if(!strcmp(argv[i],"--version")||!strcmp(argv[i],"-V")){printf("frame-dictate-vosk-native %s\n", GIT_REVISION); return 0;}
@@ -56,6 +58,9 @@ int main(int argc, char **argv) {
     a.model=vosk_model_new(a.model_path); if(!a.model){fprintf(stderr,"failed to load model\n"); return 1;}
     fprintf(stderr,"Ready. Press aux/side to start; short pauses commit silently, long pause stops. Press aux while dictating to stop early and send Return.\n");
     if(!a.no_sounds){ fprintf(stderr,"start sound: %s\nend sound:   %s\n",a.start_sound,a.end_sound); }
+    fprintf(stderr,"playback ducking: %s", a.duck_enabled ? "enabled" : "disabled");
+    if (a.duck_enabled) fprintf(stderr," (volume %.2f)", a.duck_volume);
+    fprintf(stderr,"\n");
     segq_init(&a.segq); textq_init(&a.textq);
     pthread_t st, tt; pthread_create(&st,NULL,segment_thread_main,&a); pthread_create(&tt,NULL,type_thread_main,&a);
     int efd=open(a.device,O_RDONLY); if(efd<0){perror("open input"); return 1;}
