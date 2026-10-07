@@ -57,7 +57,31 @@ Version check:
 
 Installation requires console access to the Frame so files and the user systemd service can be installed. This has only been tested on a Frame with Developer Mode enabled; installation without Developer Mode has not been tested.
 
-A future release should provide a prebuilt tarball plus installer script, but it will still need some way to run that installer on the headset.
+From a checkout on the Frame:
+
+```bash
+./packaging/install.sh
+```
+
+The installer copies the binary, Whisper libraries, and model to:
+
+```text
+~/.local/share/steam-frame-dictation
+```
+
+and installs/enables the user service:
+
+```text
+~/.config/systemd/user/frame-dictation.service
+```
+
+Uninstall:
+
+```bash
+~/.local/share/steam-frame-dictation/uninstall.sh
+```
+
+A future release should provide a prebuilt tarball plus this installer script, but it will still need some way to run that installer on the headset.
 
 ## Build
 
