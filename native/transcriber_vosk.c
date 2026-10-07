@@ -1,4 +1,5 @@
 #include "app.h"
+#include "whisper.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -110,8 +111,50 @@ static char *transcribe_whisper(app *a, const uint8_t *pcm, size_t n) {
     return trimmed;
 }
 
+static char *transcribe_whisper_lib(app *a, const uint8_t *pcm, size_t n) {
+    if (!a->whisper_ctx) return strdup("");
+    size_t samples = n / 2;
+    float *f32 = malloc(samples * sizeof(float));
+    if (!f32) return strdup("");
+    const int16_t *s16 = (const int16_t *)pcm;
+    for (size_t i = 0; i < samples; i++) f32[i] = (float)s16[i] / 32768.0f;
+
+    struct whisper_full_params p = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    p.n_threads = a->whisper_threads;
+    p.language = "en";
+    p.translate = false;
+    p.no_context = true;
+    p.no_timestamps = true;
+    p.single_segment = true;
+    p.print_special = false;
+    p.print_progress = false;
+    p.print_realtime = false;
+    p.print_timestamps = false;
+    p.suppress_blank = true;
+    p.temperature = 0.0f;
+
+    int rc = whisper_full(a->whisper_ctx, p, f32, (int)samples);
+    free(f32);
+    if (rc != 0) return strdup("");
+
+    struct bytes out = {0};
+    int nseg = whisper_full_n_segments(a->whisper_ctx);
+    for (int i = 0; i < nseg; i++) {
+        const char *t = whisper_full_get_segment_text(a->whisper_ctx, i);
+        if (t && *t) {
+            if (out.n) bytes_append(&out, " ", 1);
+            bytes_append(&out, t, strlen(t));
+        }
+    }
+    char nul = 0; bytes_append(&out, &nul, 1);
+    char *trimmed = trim_dup((char *)out.p);
+    bytes_free(&out);
+    return trimmed;
+}
+
 static char *transcribe_segment(app *a, const uint8_t *pcm, size_t n) {
-    if (!strcmp(a->provider, "whisper")) return transcribe_whisper(a, pcm, n);
+    if (!strcmp(a->provider, "whisper")) return transcribe_whisper_lib(a, pcm, n);
+    if (!strcmp(a->provider, "whisper-cli")) return transcribe_whisper(a, pcm, n);
     return transcribe_vosk(a, pcm, n);
 }
 

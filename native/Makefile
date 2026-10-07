@@ -1,8 +1,10 @@
 VOSK_DIR := /home/steamos/voice-dictation/.venv/lib/python3.12/site-packages/vosk
+WHISPER_DIR := /home/steamos/voice-dictation/lib/whisper
+INCLUDE_DIR := /home/steamos/voice-dictation/include
 GIT_REVISION := $(shell git -C .. describe --always --dirty --broken 2>/dev/null || echo unknown)
-CFLAGS := -O3 -flto -DNDEBUG -Wall -Wextra -DGIT_REVISION=\"$(GIT_REVISION)\"
-LDFLAGS := -L$(VOSK_DIR) -Wl,-rpath,$(VOSK_DIR)
-LDLIBS := -lvosk -lm -lpthread
+CFLAGS := -O3 -flto -DNDEBUG -Wall -Wextra -I$(INCLUDE_DIR) -DGIT_REVISION=\"$(GIT_REVISION)\"
+LDFLAGS := -L$(VOSK_DIR) -L$(WHISPER_DIR) -Wl,-rpath,$(VOSK_DIR) -Wl,-rpath,$(WHISPER_DIR)
+LDLIBS := -lvosk -lwhisper -lggml -lggml-base -lggml-cpu -lm -lpthread
 
 SOURCES := main.c util.c queues.c feedback.c output_uinput.c audio_pw.c audio_policy.c transcriber_vosk.c session.c
 OBJECTS := $(SOURCES:.c=.o)

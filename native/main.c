@@ -1,4 +1,5 @@
 #include "app.h"
+#include "whisper.h"
 #include <fcntl.h>
 #include <linux/input.h>
 #include <linux/uinput.h>
@@ -15,7 +16,7 @@ static void on_signal(int sig) { (void)sig; g_stop = 1; }
 static void usage(const char *argv0) {
     fprintf(stderr,"Usage: %s [options]\n", argv0);
     fprintf(stderr,"  --version                    print build git revision\n");
-    fprintf(stderr,"  --provider NAME               vosk (default) or whisper\n  --whisper-cli PATH            default " DEFAULT_WHISPER_CLI "\n  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --dry-run | --no-sounds\n");
+    fprintf(stderr,"  --provider NAME               vosk (default), whisper, or whisper-cli\n  --whisper-cli PATH            default " DEFAULT_WHISPER_CLI "\n  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --dry-run | --no-sounds\n");
 }
 
 static app default_app(void) {
@@ -63,6 +64,12 @@ int main(int argc, char **argv) {
         fprintf(stderr,"Loading Vosk model once: %s\n", a.model_path);
         a.model=vosk_model_new(a.model_path); if(!a.model){fprintf(stderr,"failed to load model\n"); return 1;}
     } else if(!strcmp(a.provider, "whisper")) {
+        fprintf(stderr,"provider: libwhisper\n");
+        fprintf(stderr,"Loading Whisper model once: %s\n", a.whisper_model);
+        struct whisper_context_params cparams = whisper_context_default_params();
+        a.whisper_ctx = whisper_init_from_file_with_params(a.whisper_model, cparams);
+        if(!a.whisper_ctx){fprintf(stderr,"failed to load whisper model\n"); return 1;}
+    } else if(!strcmp(a.provider, "whisper-cli")) {
         fprintf(stderr,"provider: whisper-cli\n");
         fprintf(stderr,"whisper cli: %s\nwhisper model: %s\n", a.whisper_cli, a.whisper_model);
     } else {
@@ -85,6 +92,7 @@ int main(int argc, char **argv) {
     one=0; ioctl(efd, EVIOCGRAB, &one); close(efd);
     segq_done(&a.segq); pthread_join(st,NULL); pthread_join(tt,NULL);
     if(a.ufd>=0){ ioctl(a.ufd, UI_DEV_DESTROY); close(a.ufd); }
+    if(a.whisper_ctx) whisper_free(a.whisper_ctx);
     if(a.model) vosk_model_free(a.model);
     return 0;
 }

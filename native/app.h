@@ -9,6 +9,7 @@
 // Minimal Vosk C API declarations.
 typedef struct VoskModel VoskModel;
 typedef struct VoskRecognizer VoskRecognizer;
+typedef struct whisper_context whisper_context;
 extern void vosk_set_log_level(int log_level);
 extern VoskModel *vosk_model_new(const char *model_path);
 extern void vosk_model_free(VoskModel *model);
@@ -48,6 +49,7 @@ typedef struct app {
     bool no_sounds, dry_run, duck_enabled, has_saved_volume;
     int ufd;
     VoskModel *model;
+    whisper_context *whisper_ctx;
     seg_queue segq;
     text_queue textq;
 } app;
