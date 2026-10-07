@@ -33,7 +33,8 @@ void type_text(int fd, const char *s) {
 void *type_thread_main(void *vp) {
     app *a=vp; char *text=NULL;
     while(textq_pop(&a->textq, &text)) {
-        fprintf(stderr,"type: '%s'\n", text);
+        if (a->quiet) fprintf(stderr,"type: <redacted>\n");
+        else fprintf(stderr,"type: '%s'\n", text);
         if(!a->dry_run && a->ufd>=0) type_text(a->ufd, text);
         free(text);
     }

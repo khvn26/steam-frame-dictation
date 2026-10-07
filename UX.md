@@ -30,6 +30,7 @@ Only one primary mode matters:
 - silence threshold: RMS 100
 - no-speech timeout: 8.0s
 - playback ducking: enabled by default to volume 0.15 during active dictation, restored afterward; start/end chimes play at normal volume
+- service quiet mode: enabled; dictated text must not be written to logs/journal
 
 ## Feedback sounds
 
@@ -42,6 +43,7 @@ Only one primary mode matters:
 - Near-zero idle CPU.
 - Idle should block on input events, not poll actively.
 - Do not keep microphone capture active while idle.
+- Do not log recognized or typed dictated text in normal service operation.
 - Playback ducking should only apply during active listening, after the start chime and before the end chime, and must restore the previous volume afterward.
 - Keep STT model loaded once while service is running.
 - Do not spawn Python/uv in the runtime hot path.

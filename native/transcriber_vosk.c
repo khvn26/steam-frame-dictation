@@ -130,11 +130,13 @@ void *segment_thread_main(void *vp) {
                 double t0=monotonic_s();
                 char *text = transcribe_segment(a, pcm.p, pcm.n);
                 if(text && *text && !is_bad_text(text)) {
-                    fprintf(stderr,"heard: '%s' (%.2fs)\n", text, monotonic_s()-t0);
+                    if (a->quiet) fprintf(stderr,"heard: <redacted> (%.2fs)\n", monotonic_s()-t0);
+                    else fprintf(stderr,"heard: '%s' (%.2fs)\n", text, monotonic_s()-t0);
                     size_t len=strlen(text); char *with_space=malloc(len+2);
                     if(with_space) { memcpy(with_space,text,len); with_space[len]=' '; with_space[len+1]=0; textq_push(&a->textq, with_space); }
                 } else if (text && *text) {
-                    fprintf(stderr,"drop transcript: '%s'\n", text);
+                    if (a->quiet) fprintf(stderr,"drop transcript: <redacted>\n");
+                    else fprintf(stderr,"drop transcript: '%s'\n", text);
                 } else fprintf(stderr,"no transcript\n");
                 free(text); bytes_free(&pcm);
             }

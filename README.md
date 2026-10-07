@@ -93,6 +93,8 @@ After rebuilding:
 systemctl --user restart frame-dictation.service
 ```
 
+The service should use `--quiet` so dictated text is not stored in the systemd user journal. In quiet mode, transcript and typed text log lines are redacted.
+
 ## Tuned defaults
 
 - aux/side trigger: evdev key code `353`
@@ -104,6 +106,7 @@ systemctl --user restart frame-dictation.service
 - recorder warmup: `0.2s`
 - silence threshold: RMS `100`
 - playback ducking: enabled, target volume `0.15`
+- quiet mode: enabled for the service so dictated text is redacted from logs
 
 ## Playback ducking
 

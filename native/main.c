@@ -18,7 +18,7 @@ static void on_signal(int sig) { (void)sig; g_stop = 1; }
 static void usage(const char *argv0) {
     fprintf(stderr,"Usage: %s [options]\n", argv0);
     fprintf(stderr,"  --version                    print build git revision\n");
-    fprintf(stderr,"  --provider NAME               vosk (default) or whisper\n  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --whisper-audio-ctx N         default 0 (full)\n  --whisper-max-tokens N        default 0 (unlimited)\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --min-segment-seconds N       default 0.6\n  --min-transcribe-rms N        default 150\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --dry-run | --no-sounds\n");
+    fprintf(stderr,"  --provider NAME               vosk (default) or whisper\n  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --whisper-audio-ctx N         default 0 (full)\n  --whisper-max-tokens N        default 0 (unlimited)\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --min-segment-seconds N       default 0.6\n  --min-transcribe-rms N        default 150\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --quiet                       do not log dictated text\n  --dry-run | --no-sounds\n");
 }
 
 static app default_app(void) {
@@ -54,6 +54,7 @@ int main(int argc, char **argv) {
         else if(!strcmp(argv[i],"--duck-volume")){NEEDVAL(); a.duck_volume=atof(argv[++i]);}
         else if(!strcmp(argv[i],"--no-duck")) a.duck_enabled=false;
         else if(!strcmp(argv[i],"--dry-run")) a.dry_run=true;
+        else if(!strcmp(argv[i],"--quiet")) a.quiet=true;
         else if(!strcmp(argv[i],"--no-sounds")) a.no_sounds=true;
         else if(!strcmp(argv[i],"--version")||!strcmp(argv[i],"-V")){printf("frame-dictate-vosk-native %s\n", GIT_REVISION); return 0;}
         else if(!strcmp(argv[i],"--help")||!strcmp(argv[i],"-h")){usage(argv[0]); return 0;}
@@ -87,6 +88,7 @@ int main(int argc, char **argv) {
     fprintf(stderr,"Ready. Press aux/side to start; short pauses commit silently, long pause stops. Press aux while dictating to stop early and send Return.\n");
     if(!a.no_sounds){ fprintf(stderr,"start sound: %s\nend sound:   %s\n",a.start_sound,a.end_sound); }
     fprintf(stderr,"segment filter: min %.2fs, rms %.0f\n", a.min_segment_seconds, a.min_transcribe_rms);
+    fprintf(stderr,"text logging: %s\n", a.quiet ? "disabled" : "enabled");
     fprintf(stderr,"playback ducking: %s", a.duck_enabled ? "enabled" : "disabled");
     if (a.duck_enabled) fprintf(stderr," (volume %.2f)", a.duck_volume);
     fprintf(stderr,"\n");

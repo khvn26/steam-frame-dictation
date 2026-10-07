@@ -46,7 +46,7 @@ typedef struct app {
     double actionable_pause, final_pause, silence_threshold, no_speech_timeout, preroll, warmup;
     double min_segment_seconds, min_transcribe_rms;
     double duck_volume, saved_volume;
-    bool no_sounds, dry_run, duck_enabled, has_saved_volume;
+    bool no_sounds, dry_run, quiet, duck_enabled, has_saved_volume;
     int ufd;
     VoskModel *model;
     whisper_context *whisper_ctx;
