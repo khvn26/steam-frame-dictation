@@ -367,6 +367,7 @@ int main(int argc, char **argv) {
     signal(SIGINT,on_signal); signal(SIGTERM,on_signal);
     if(!a.dry_run) { a.ufd=setup_uinput(a.uinput); if(a.ufd<0){perror("uinput"); return 1;} }
     vosk_set_log_level(-1);
+    fprintf(stderr,"frame-dictate-vosk-native %s\n", GIT_REVISION);
     fprintf(stderr,"Loading Vosk model once: %s\n", a.model_path);
     a.model=vosk_model_new(a.model_path); if(!a.model){fprintf(stderr,"failed to load model\n"); return 1;}
     fprintf(stderr,"Ready. Press aux/side to start; short pauses commit silently, long pause stops. Press aux while dictating to stop early and send Return.\n");
