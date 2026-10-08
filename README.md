@@ -1,5 +1,7 @@
 # Steam Frame Dictation
 
+https://github.com/user-attachments/assets/c349ab1f-26a2-4fca-aa1a-0caed856ae62
+
 Offline dictation for the native SteamOS experience on Steam Frame.
 
 The current target is stock SteamOS: native Steam UI, Desktop Mode, and focused text fields. Frametop is not officially supported yet and has not been tested.
