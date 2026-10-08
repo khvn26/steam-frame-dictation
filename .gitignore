@@ -10,3 +10,7 @@ lib/whisper/
 # Logs/temp
 *.log
 *.tmp
+
+# Release staging
+dist/
+licenses/

@@ -1,0 +1,86 @@
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version/name (for manual test builds)'
+        required: false
+        default: manual
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build curl ca-certificates git patchelf
+
+      - name: Build whisper.cpp shared libraries
+        run: |
+          set -eux
+          git init /tmp/whisper.cpp
+          git -C /tmp/whisper.cpp remote add origin https://github.com/ggml-org/whisper.cpp
+          git -C /tmp/whisper.cpp fetch --depth 1 origin d1be6fde11ac6e0407606b4e42fe72d34add8037
+          git -C /tmp/whisper.cpp checkout FETCH_HEAD
+          cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGGML_NATIVE=OFF \
+            -DBUILD_SHARED_LIBS=ON \
+            -DWHISPER_BUILD_TESTS=OFF \
+            -DWHISPER_BUILD_EXAMPLES=OFF \
+            -DWHISPER_BUILD_SERVER=OFF
+          cmake --build /tmp/whisper.cpp/build -j"$(nproc)"
+          rm -rf include lib/whisper
+          mkdir -p include lib/whisper
+          cp -a /tmp/whisper.cpp/include/*.h include/
+          cp -a /tmp/whisper.cpp/ggml/include/*.h include/
+          find /tmp/whisper.cpp/build \
+            \( -name 'libwhisper.so*' -o -name 'libggml*.so*' \) \
+            -exec cp -a {} lib/whisper/ \;
+          find lib/whisper -type f -name '*.so*' -exec patchelf --set-rpath '$ORIGIN' {} \;
+          mkdir -p licenses
+          cp /tmp/whisper.cpp/LICENSE licenses/whisper.cpp-LICENSE
+
+      - name: Download Whisper tiny.en model
+        run: |
+          set -eux
+          mkdir -p models/whisper
+          curl -L --fail \
+            -o models/whisper/ggml-tiny.en.bin \
+            https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+
+      - name: Build release archive
+        run: |
+          set -eux
+          ./packaging/build-release.sh "$VERSION"
+          dist/steam-frame-dictation-*/bin/steam-frame-dictation --version
+        env:
+          VERSION: ${{ github.event.release.tag_name || inputs.version }} 
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: steam-frame-dictation-release
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+
+      - name: Publish GitHub release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.sha256

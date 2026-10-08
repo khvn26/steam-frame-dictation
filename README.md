@@ -37,30 +37,20 @@ The native implementation is split along the dictation architecture:
 - `native/util.c` — byte buffers, timing, PCM RMS
 - `native/app.h` — shared interfaces and configuration
 
-## Main binary
-
-The installed runtime binary is:
-
-```bash
-~/voice-dictation/bin/steam-frame-dictation
-```
-
-The binary is a build artifact and is not tracked by git.
-
-Version check:
-
-```bash
-~/voice-dictation/bin/steam-frame-dictation --version
-```
-
-## Installation status
+## Install
 
 Installation requires console access to the Frame so files and the user systemd service can be installed. This has only been tested on a Frame with Developer Mode enabled; installation without Developer Mode has not been tested.
 
-From a checkout on the Frame:
+Download the latest release tarball on the Frame, then run the installer inside it:
 
 ```bash
-./packaging/install.sh
+mkdir -p ~/Downloads/steam-frame-dictation
+cd ~/Downloads/steam-frame-dictation
+curl -L -o steam-frame-dictation.tar.gz \
+  https://github.com/khvn26/steam-frame-dictation/releases/latest/download/steam-frame-dictation-aarch64-steamos-latest.tar.gz
+tar -xzf steam-frame-dictation.tar.gz
+cd steam-frame-dictation-*
+./install.sh
 ```
 
 The installer copies the binary, Whisper libraries, and model to:
@@ -75,13 +65,17 @@ and installs/enables the user service:
 ~/.config/systemd/user/frame-dictation.service
 ```
 
+Version check:
+
+```bash
+~/.local/share/steam-frame-dictation/bin/steam-frame-dictation --version
+```
+
 Uninstall:
 
 ```bash
 ~/.local/share/steam-frame-dictation/bin/steam-frame-dictation --uninstall
 ```
-
-A future release should provide a prebuilt tarball plus this installer script, but it will still need some way to run that installer on the headset.
 
 ## Build
 
@@ -136,7 +130,7 @@ The service should use `--quiet` so dictated speech and runtime details are not 
 Current service command:
 
 ```text
-/home/steamos/voice-dictation/bin/steam-frame-dictation --whisper-threads 2 --whisper-audio-ctx 768 --whisper-max-tokens 32 --quiet
+~/.local/share/steam-frame-dictation/bin/steam-frame-dictation --whisper-model ~/.local/share/steam-frame-dictation/models/whisper/ggml-tiny.en.bin --whisper-threads 2 --whisper-audio-ctx 768 --whisper-max-tokens 32 --quiet
 ```
 
 ## Tuned defaults
