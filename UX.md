@@ -8,8 +8,6 @@ The target is the stock/native SteamOS experience: Steam UI, Desktop Mode, and n
 
 ## Required operation mode
 
-Only one primary mode matters:
-
 1. Idle by default.
 2. Aux/side button starts a dictation session.
 3. Recorder starts before the start chime, with a short warmup.
@@ -50,12 +48,7 @@ Only one primary mode matters:
 - Near-zero idle CPU.
 - Idle should block on input events, not poll actively.
 - Do not keep microphone capture active while idle.
-- Do not log recognized text, typed text, or normal runtime events in service operation.
+- By default, do not log recognized text, typed text, or normal runtime events in service operation.
 - Playback ducking should only apply during active listening, after the start chime and before the end chime, and must restore the previous volume afterward.
 - Keep STT model loaded once while service is running.
-- Do not spawn Python/uv in the runtime hot path.
 - Transcription and typing must be queued so new speech is not lost while previous text is being processed.
-
-## Known tradeoff
-
-The current aux trigger conflicts with SteamOS/Frame system aux behavior because the daemon grabs the aux input device. This is accepted temporarily; do not emulate SteamOS aux behavior unless an official rebind/API is found.
