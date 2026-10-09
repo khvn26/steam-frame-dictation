@@ -71,11 +71,55 @@ static int uninstall_user_service(void) {
     return 0;
 }
 
-static void usage(const char *argv0) {
-    fprintf(stderr,"Usage: %s [options]\n", argv0);
-    fprintf(stderr,"  --version                    print build git revision\n");
-    fprintf(stderr,"  --uninstall                  disable service and remove user install\n");
-    fprintf(stderr,"  --whisper-model PATH          default " DEFAULT_WHISPER_MODEL "\n  --whisper-threads N           default 4\n  --whisper-audio-ctx N         default 0 (full)\n  --whisper-max-tokens N        default 0 (unlimited)\n  --actionable-pause-seconds N  default 0.35\n  --pause-seconds N             default 3.0\n  --chunk-bytes N               default 1600\n  --preroll-seconds N           default 0.3\n  --recorder-warmup-seconds N   default 0.2\n  --silence-threshold N         default 100\n  --min-segment-seconds N       default 0.6\n  --min-transcribe-rms N        default 150\n  --duck-volume N               default 0.15\n  --no-duck                     disable playback ducking\n  --quiet                       suppress all runtime logs\n  --dry-run | --no-sounds\n");
+static void usage(FILE *out, const char *argv0) {
+    fprintf(out, "Steam Frame Dictation — offline voice typing\nUsage: %s [options]\n\n", argv0);
+    fputs(
+        "Press aux to start; short pauses commit silently, long pauses stop.\n"
+        "Press aux again to stop and send Return after pending text.\n\n"
+        "General:\n"
+        "  -h, --help                    Show this help and exit\n"
+        "  -V, --version                 Print build revision and exit\n"
+        "  --uninstall                   Stop/disable service and remove the default\n"
+        "                                user install (not the source checkout)\n"
+        "  --quiet                       Suppress runtime logs, including errors\n"
+        "  --dry-run                     Do not create/type through a virtual keyboard;\n"
+        "                                still grabs input, records, and transcribes\n\n"
+        "Input and capture:\n"
+        "  --device PATH                 Trigger evdev device\n"
+        "                                default: " DEFAULT_DEVICE "\n"
+        "  --key N                       Trigger key code (default: 353)\n"
+        "  --uinput PATH                 Virtual keyboard device (default: " DEFAULT_UINPUT ")\n"
+        "  --source NAME                 pw-record target (default: system microphone)\n"
+        "  --rate N                      Capture sample rate (default: 16000 Hz)\n"
+        "                                Keep at 16000: Whisper expects 16 kHz audio\n"
+        "  --chunk-bytes N               PCM read size (default: 1600 bytes)\n"
+        "  --preroll-seconds N            Audio retained before speech (default: 0.3)\n"
+        "  --recorder-warmup-seconds N    Capture warmup before start chime (default: 0.2)\n\n"
+        "Segmentation and filtering:\n"
+        "  --actionable-pause-seconds N   Silence before segment commit (default: 0.35)\n"
+        "  --pause-seconds N              Silence after speech before stop (default: 3.0)\n"
+        "  --no-speech-timeout N          Stop if no speech detected (default: 8.0 seconds)\n"
+        "  --silence-threshold N          PCM RMS speech threshold (default: 100)\n"
+        "  --min-segment-seconds N        Minimum transcribed segment duration (default: 0.6)\n"
+        "  --min-transcribe-rms N         Minimum segment PCM RMS (default: 150)\n\n"
+        "Whisper:\n"
+        "  --whisper-model PATH          Model file\n"
+        "                                default: " DEFAULT_WHISPER_MODEL "\n"
+        "  --whisper-threads N            Inference threads (default: 4)\n"
+        "  --whisper-audio-ctx N          Audio context size (default: 0 = full)\n"
+        "  --whisper-max-tokens N         Segment token limit (default: 0 = unlimited)\n\n"
+        "Audio feedback:\n"
+        "  --duck-volume N               Playback volume cap while listening\n"
+        "                                (default: 0.15; 1.0 = 100%, not a multiplier)\n"
+        "  --no-duck                     Disable playback ducking\n"
+        "  --start-sound PATH            Start chime (default: " DEFAULT_START_SOUND ")\n"
+        "  --end-sound PATH              Stop chime (default: " DEFAULT_END_SOUND ")\n"
+        "  --no-sounds                   Disable chimes\n\n"
+        "Installed service overrides: threads=2, audio_ctx=768, max_tokens=32,\n"
+        "--quiet, and an explicit installed model path. Other defaults are above.\n"
+        "Without --quiet, transcripts are logged. Stop the service before running\n"
+        "a second instance. Numeric values must be sensible; validation is limited.\n",
+        out);
 }
 
 static app default_app(void) {
@@ -85,15 +129,13 @@ static app default_app(void) {
 int main(int argc, char **argv) {
     app a = default_app();
     for(int i=1;i<argc;i++) {
-        #define NEEDVAL() if(i+1>=argc){usage(argv[0]); return 2;}
-        if(!strcmp(argv[i],"--provider")){NEEDVAL(); i++; /* accepted for old service files */}
-        else if(!strcmp(argv[i],"--whisper-model")){NEEDVAL(); a.whisper_model=argv[++i];}
+        #define NEEDVAL() if(i+1>=argc){usage(stderr, argv[0]); return 2;}
+        if(!strcmp(argv[i],"--whisper-model")){NEEDVAL(); a.whisper_model=argv[++i];}
         else if(!strcmp(argv[i],"--whisper-threads")){NEEDVAL(); a.whisper_threads=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--whisper-audio-ctx")){NEEDVAL(); a.whisper_audio_ctx=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--whisper-max-tokens")){NEEDVAL(); a.whisper_max_tokens=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--device")){NEEDVAL(); a.device=argv[++i];}
         else if(!strcmp(argv[i],"--uinput")){NEEDVAL(); a.uinput=argv[++i];}
-        else if(!strcmp(argv[i],"--model")){NEEDVAL(); i++; /* accepted for old scripts */}
         else if(!strcmp(argv[i],"--source")){NEEDVAL(); a.source=argv[++i];}
         else if(!strcmp(argv[i],"--key")){NEEDVAL(); a.key=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--rate")){NEEDVAL(); a.rate=atoi(argv[++i]);}
@@ -115,9 +157,8 @@ int main(int argc, char **argv) {
         else if(!strcmp(argv[i],"--no-sounds")) a.no_sounds=true;
         else if(!strcmp(argv[i],"--version")||!strcmp(argv[i],"-V")){printf("steam-frame-dictation %s\n", GIT_REVISION); return 0;}
         else if(!strcmp(argv[i],"--uninstall")){return uninstall_user_service();}
-        else if(!strcmp(argv[i],"--help")||!strcmp(argv[i],"-h")){usage(argv[0]); return 0;}
-        else if(!strcmp(argv[i],"--continuous")) {}
-        else { fprintf(stderr,"unknown option: %s\n",argv[i]); usage(argv[0]); return 2; }
+        else if(!strcmp(argv[i],"--help")||!strcmp(argv[i],"-h")){usage(stdout, argv[0]); return 0;}
+        else { fprintf(stderr,"unknown option: %s\n",argv[i]); usage(stderr, argv[0]); return 2; }
     }
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));

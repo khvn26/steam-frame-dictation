@@ -29,7 +29,6 @@ cp -a "$ROOT/lib/whisper" "$STAGE/lib/whisper"
 install -m 0644 "$ROOT/models/whisper/ggml-tiny.en.bin" "$STAGE/models/whisper/ggml-tiny.en.bin"
 install -m 0755 "$ROOT/packaging/install.sh" "$STAGE/install.sh"
 install -m 0644 "$ROOT/README.md" "$STAGE/README.md"
-install -m 0644 "$ROOT/UX.md" "$STAGE/UX.md"
 
 if [[ -d "$ROOT/licenses" ]]; then cp -a "$ROOT/licenses" "$STAGE/"; fi
 mkdir -p "$DIST"

@@ -85,9 +85,6 @@ install -m 0644 "$MODEL_SRC" "$INSTALL_DIR/models/whisper/ggml-tiny.en.bin"
 if [[ -f "$ROOT_DIR/README.md" ]]; then
   install -m 0644 "$ROOT_DIR/README.md" "$INSTALL_DIR/README.md"
 fi
-if [[ -f "$ROOT_DIR/UX.md" ]]; then
-  install -m 0644 "$ROOT_DIR/UX.md" "$INSTALL_DIR/UX.md"
-fi
 cat > "$SERVICE_PATH" <<EOF_SERVICE
 [Unit]
 Description=Steam Frame Dictation
