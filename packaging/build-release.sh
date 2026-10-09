@@ -30,7 +30,8 @@ install -m 0644 "$ROOT/models/whisper/ggml-tiny.en.bin" "$STAGE/models/whisper/g
 install -m 0755 "$ROOT/packaging/install.sh" "$STAGE/install.sh"
 install -m 0644 "$ROOT/README.md" "$STAGE/README.md"
 
-if [[ -d "$ROOT/licenses" ]]; then cp -a "$ROOT/licenses" "$STAGE/"; fi
+install -m 0644 "$ROOT/LICENSE" "$STAGE/LICENSE"
+cp -a "$ROOT/third_party" "$STAGE/third_party"
 mkdir -p "$DIST"
 tar -C "$DIST" -czf "$DIST/$NAME.tar.gz" "$NAME"
 cp "$DIST/$NAME.tar.gz" "$DIST/steam-frame-dictation-aarch64-steamos-latest.tar.gz"

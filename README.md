@@ -4,6 +4,10 @@ https://github.com/user-attachments/assets/c349ab1f-26a2-4fca-aa1a-0caed856ae62
 
 Offline dictation on the Steam Frame.
 
+**Early release:** while running, dictation exclusively grabs the aux/side-button device and interferes with normal SteamOS aux shortcuts. Stop or uninstall the service to restore them.
+
+MIT licensed. See [LICENSE](LICENSE) and [third-party notices](third_party/README.md).
+
 ## Install
 
 In your console, run:

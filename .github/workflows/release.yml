@@ -50,8 +50,7 @@ jobs:
             \( -name 'libwhisper.so*' -o -name 'libggml*.so*' \) \
             -exec cp -a {} lib/whisper/ \;
           find lib/whisper -type f -name '*.so*' -exec patchelf --set-rpath '$ORIGIN' {} \;
-          mkdir -p licenses
-          cp /tmp/whisper.cpp/LICENSE licenses/whisper.cpp-LICENSE
+          cmp /tmp/whisper.cpp/LICENSE third_party/whisper.cpp-LICENSE
 
       - name: Download Whisper tiny.en model
         run: |
@@ -66,6 +65,9 @@ jobs:
           set -eux
           ./packaging/build-release.sh "$VERSION"
           dist/steam-frame-dictation-*/bin/steam-frame-dictation --version
+          dist/steam-frame-dictation-*/bin/steam-frame-dictation --help
+          test -s dist/steam-frame-dictation-*/LICENSE
+          test -s dist/steam-frame-dictation-*/third_party/whisper-model-LICENSE
         env:
           VERSION: ${{ github.event.release.tag_name || inputs.version }} 
 
