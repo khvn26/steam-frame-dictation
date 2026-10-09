@@ -13,7 +13,7 @@ MIT licensed. See [LICENSE](LICENSE) and [third-party notices](third_party/READM
 In your console, run:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/khvn26/steam-frame-dictation/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/khvn26/steam-frame-dictation/main/install.sh | bash
 ```
 
 The installer copies the binary, Whisper libraries, and model to:
