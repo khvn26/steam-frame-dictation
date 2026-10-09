@@ -43,17 +43,21 @@ The native implementation is split along the dictation architecture:
 
 Installation requires console access to the Frame so files and the user systemd service can be installed. This has only been tested on a Frame with Developer Mode enabled; installation without Developer Mode has not been tested.
 
-Download the latest release tarball on the Frame, then run the installer inside it:
+Run in a console on the Frame as your normal user (**no sudo**):
 
 ```bash
-mkdir -p ~/Downloads/steam-frame-dictation
-cd ~/Downloads/steam-frame-dictation
-curl -L -o steam-frame-dictation.tar.gz \
-  https://github.com/khvn26/steam-frame-dictation/releases/latest/download/steam-frame-dictation-aarch64-steamos-latest.tar.gz
-tar -xzf steam-frame-dictation.tar.gz
-cd steam-frame-dictation-*
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/khvn26/steam-frame-dictation/master/install.sh | bash
 ```
+
+This downloads the latest prebuilt ARM64 release, verifies its SHA-256 checksum, installs it, and enables dictation at login. No compiler, source checkout, or manual model download is needed. Run the same command to update; this briefly stops dictation. Press aux, wait for the chime, then speak.
+
+**Private repository:** the anonymous curl command works only when the repository is public. While it is private, use GitHub CLI authenticated with repository access:
+
+```bash
+gh api -H 'Accept: application/vnd.github.raw' 'repos/khvn26/steam-frame-dictation/contents/install.sh?ref=master' | SFD_PRIVATE=1 bash
+```
+
+Prefer to inspect the installer first? Download `install.sh` using the same URL, read it, then run `bash install.sh`. The one-liner executes downloaded code.
 
 The installer copies the binary, Whisper libraries, and model to:
 
