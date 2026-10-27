@@ -12,15 +12,8 @@ static int emit_ev(int fd, uint16_t type, uint16_t code, int32_t value) {
     struct input_event ev; memset(&ev,0,sizeof(ev)); ev.type=type; ev.code=code; ev.value=value;
     return write(fd,&ev,sizeof(ev)) == sizeof(ev) ? 0 : -1;
 }
-static void report_key(app *a, int code, int value) {
-    if (a->dry_run || a->ufd < 0) return;
-    pthread_mutex_lock(&a->uinput_mu);
-    emit_ev(a->ufd, EV_KEY, code, value);
-    emit_ev(a->ufd, EV_SYN, SYN_REPORT, 0);
-    pthread_mutex_unlock(&a->uinput_mu);
-}
-static void key_ev(app *a, int code, bool down) { report_key(a,code,down?1:0); usleep(8000); }
-static void tap(app *a, int code, bool shift) { if(shift) key_ev(a,KEY_LEFTSHIFT,true); key_ev(a,code,true); key_ev(a,code,false); if(shift) key_ev(a,KEY_LEFTSHIFT,false); }
+static void key_ev(int fd, int code, bool down) { emit_ev(fd,EV_KEY,code,down?1:0); emit_ev(fd,EV_SYN,SYN_REPORT,0); usleep(8000); }
+static void tap(int fd, int code, bool shift) { if(shift) key_ev(fd,KEY_LEFTSHIFT,true); key_ev(fd,code,true); key_ev(fd,code,false); if(shift) key_ev(fd,KEY_LEFTSHIFT,false); }
 
 typedef struct { char ch; int key; bool shift; } keymap;
 static keymap maps[] = {
@@ -30,22 +23,19 @@ static keymap maps[] = {
  {'!',KEY_1,true},{'@',KEY_2,true},{'#',KEY_3,true},{'$',KEY_4,true},{'%',KEY_5,true},{'^',KEY_6,true},{'&',KEY_7,true},{'*',KEY_8,true},{'(',KEY_9,true},{')',KEY_0,true},
  {' ',KEY_SPACE,false},{'\n',KEY_ENTER,false},{'-',KEY_MINUS,false},{'_',KEY_MINUS,true},{'=',KEY_EQUAL,false},{'+',KEY_EQUAL,true},{'[',KEY_LEFTBRACE,false},{'{',KEY_LEFTBRACE,true},{']',KEY_RIGHTBRACE,false},{'}',KEY_RIGHTBRACE,true},{'\\',KEY_BACKSLASH,false},{'|',KEY_BACKSLASH,true},{';',KEY_SEMICOLON,false},{':',KEY_SEMICOLON,true},{'\'',KEY_APOSTROPHE,false},{'"',KEY_APOSTROPHE,true},{'`',KEY_GRAVE,false},{'~',KEY_GRAVE,true},{',',KEY_COMMA,false},{'<',KEY_COMMA,true},{'.',KEY_DOT,false},{'>',KEY_DOT,true},{'/',KEY_SLASH,false},{'?',KEY_SLASH,true}
 };
-void type_text(app *a, const char *s) {
+void type_text(int fd, const char *s) {
     for(const unsigned char *p=(const unsigned char*)s; *p; p++) {
         bool found=false;
-        for(size_t i=0;i<sizeof(maps)/sizeof(maps[0]);i++) if(maps[i].ch==(char)*p) { tap(a,maps[i].key,maps[i].shift); found=true; break; }
+        for(size_t i=0;i<sizeof(maps)/sizeof(maps[0]);i++) if(maps[i].ch==(char)*p) { tap(fd,maps[i].key,maps[i].shift); found=true; break; }
         if(!found) fprintf(stderr,"skip char 0x%02x\n", *p);
     }
-}
-void forward_volume_key(app *a, int value) {
-    report_key(a, KEY_VOLUMEUP, value);
 }
 void *type_thread_main(void *vp) {
     app *a=vp; char *text=NULL;
     while(textq_pop(&a->textq, &text)) {
         if (a->quiet) fprintf(stderr,"type: <redacted>\n");
         else fprintf(stderr,"type: '%s'\n", text);
-        if(!a->dry_run && a->ufd>=0) type_text(a, text);
+        if(!a->dry_run && a->ufd>=0) type_text(a->ufd, text);
         free(text);
     }
     return NULL;
@@ -53,7 +43,7 @@ void *type_thread_main(void *vp) {
 int setup_uinput(const char *path) {
     int fd=open(path,O_WRONLY|O_NONBLOCK); if(fd<0) return -1;
     ioctl(fd, UI_SET_EVBIT, EV_KEY);
-    int keys[] = {KEY_VOLUMEUP,KEY_LEFTSHIFT,KEY_SPACE,KEY_ENTER,KEY_MINUS,KEY_EQUAL,KEY_LEFTBRACE,KEY_RIGHTBRACE,KEY_BACKSLASH,KEY_SEMICOLON,KEY_APOSTROPHE,KEY_GRAVE,KEY_COMMA,KEY_DOT,KEY_SLASH,KEY_1,KEY_2,KEY_3,KEY_4,KEY_5,KEY_6,KEY_7,KEY_8,KEY_9,KEY_0,KEY_A,KEY_B,KEY_C,KEY_D,KEY_E,KEY_F,KEY_G,KEY_H,KEY_I,KEY_J,KEY_K,KEY_L,KEY_M,KEY_N,KEY_O,KEY_P,KEY_Q,KEY_R,KEY_S,KEY_T,KEY_U,KEY_V,KEY_W,KEY_X,KEY_Y,KEY_Z};
+    int keys[] = {KEY_LEFTSHIFT,KEY_SPACE,KEY_ENTER,KEY_MINUS,KEY_EQUAL,KEY_LEFTBRACE,KEY_RIGHTBRACE,KEY_BACKSLASH,KEY_SEMICOLON,KEY_APOSTROPHE,KEY_GRAVE,KEY_COMMA,KEY_DOT,KEY_SLASH,KEY_1,KEY_2,KEY_3,KEY_4,KEY_5,KEY_6,KEY_7,KEY_8,KEY_9,KEY_0,KEY_A,KEY_B,KEY_C,KEY_D,KEY_E,KEY_F,KEY_G,KEY_H,KEY_I,KEY_J,KEY_K,KEY_L,KEY_M,KEY_N,KEY_O,KEY_P,KEY_Q,KEY_R,KEY_S,KEY_T,KEY_U,KEY_V,KEY_W,KEY_X,KEY_Y,KEY_Z};
     for(size_t i=0;i<sizeof(keys)/sizeof(keys[0]);i++) ioctl(fd, UI_SET_KEYBIT, keys[i]);
     struct uinput_setup us; memset(&us,0,sizeof(us)); snprintf(us.name,sizeof(us.name),"steam-frame-dictation"); us.id.bustype=BUS_USB; us.id.vendor=0x28de; us.id.product=0xd1c7; us.id.version=1;
     if(ioctl(fd, UI_DEV_SETUP, &us)<0 || ioctl(fd, UI_DEV_CREATE)<0) { close(fd); return -1; }

@@ -33,7 +33,6 @@ typedef struct app {
     double duck_volume, saved_volume;
     bool no_sounds, dry_run, quiet, duck_enabled, has_saved_volume;
     int ufd;
-    pthread_mutex_t uinput_mu;
     struct whisper_context *whisper_ctx;
     seg_queue segq;
     text_queue textq;
@@ -62,8 +61,7 @@ void play_sound(const char *path, bool wait_for_it);
 
 // output
 int setup_uinput(const char *path);
-void type_text(app *a, const char *s);
-void forward_volume_key(app *a, int value);
+void type_text(int fd, const char *s);
 void *type_thread_main(void *vp);
 
 // audio capture
@@ -73,6 +71,7 @@ void stop_child(int pid);
 // audio policy
 void audio_policy_begin(app *a);
 void audio_policy_end(app *a);
+void audio_policy_volume_up(app *a);
 
 // transcriber
 void *segment_thread_main(void *vp);

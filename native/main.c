@@ -167,8 +167,7 @@ int main(int argc, char **argv) {
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
     if (a.quiet) enable_quiet_mode();
-    pthread_mutex_init(&a.uinput_mu, NULL);
-    if(!a.dry_run) { a.ufd=setup_uinput(a.uinput); if(a.ufd<0){perror("uinput"); pthread_mutex_destroy(&a.uinput_mu); return 1;} }
+    if(!a.dry_run) { a.ufd=setup_uinput(a.uinput); if(a.ufd<0){perror("uinput"); return 1;} }
     fprintf(stderr,"steam-frame-dictation %s\n", GIT_REVISION);
     fprintf(stderr,"provider: libwhisper\n");
     fprintf(stderr,"Loading Whisper model once: %s\n", a.whisper_model);
@@ -199,7 +198,7 @@ int main(int argc, char **argv) {
         if (pr == 0 || !(pfd.revents & POLLIN)) continue;
         while (read(efd,&ev,sizeof(ev))==sizeof(ev)) {
             if(ev.type==EV_KEY && ev.code==a.key && ev.value==1) run_utterance(&a, efd);
-            else if(ev.type==EV_KEY && ev.code==KEY_VOLUMEUP) forward_volume_key(&a, ev.value);
+            else if(ev.type==EV_KEY && ev.code==KEY_VOLUMEUP && ev.value != 0) audio_policy_volume_up(&a);
             if (g_stop) break;
         }
         if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
@@ -210,7 +209,6 @@ int main(int argc, char **argv) {
     one=0; ioctl(efd, EVIOCGRAB, &one); close(efd);
     segq_done(&a.segq); pthread_join(st,NULL); pthread_join(tt,NULL);
     if(a.ufd>=0){ ioctl(a.ufd, UI_DEV_DESTROY); close(a.ufd); }
-    pthread_mutex_destroy(&a.uinput_mu);
     if(a.whisper_ctx) whisper_free(a.whisper_ctx);
     return 0;
 }

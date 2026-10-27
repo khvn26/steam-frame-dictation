@@ -25,6 +25,13 @@ static bool wpctl_get_default_sink_volume(double *out) {
     return ok;
 }
 
+static int wait_child(pid_t pid) {
+    if (pid <= 0) return -1;
+    int st;
+    if (waitpid(pid, &st, 0) < 0) return -1;
+    return WIFEXITED(st) && WEXITSTATUS(st) == 0 ? 0 : -1;
+}
+
 static void wpctl_set_default_sink_volume(double volume) {
     if (volume < 0.0) volume = 0.0;
     if (volume > 1.5) volume = 1.5;
@@ -35,9 +42,21 @@ static void wpctl_set_default_sink_volume(double volume) {
         execlp("wpctl", "wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", vol, (char *)NULL);
         _exit(127);
     }
-    if (pid > 0) {
-        int st;
-        waitpid(pid, &st, 0);
+    wait_child(pid);
+}
+
+void audio_policy_volume_up(app *a) {
+    pid_t pid = fork();
+    if (pid == 0) {
+        execlp("wpctl", "wpctl", "set-volume", "-l", "1.5",
+               "@DEFAULT_AUDIO_SINK@", "5%+", (char *)NULL);
+        _exit(127);
+    }
+    if (wait_child(pid) == 0 && a->has_saved_volume) {
+        // Ducking restores this value when listening ends. Preserve the user's
+        // adjustment instead of restoring the pre-button volume.
+        a->saved_volume += 0.05;
+        if (a->saved_volume > 1.5) a->saved_volume = 1.5;
     }
 }
 
