@@ -37,6 +37,8 @@ void run_utterance(app *a, int efd) {
                         segq_push(&a->segq,&empty,true);
                     }
                     goto done_recording;
+                } else if (ev.type == EV_KEY && ev.code == KEY_VOLUMEUP) {
+                    forward_volume_key(a, ev.value);
                 }
             }
         }
