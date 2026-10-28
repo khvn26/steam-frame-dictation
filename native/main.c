@@ -198,6 +198,7 @@ int main(int argc, char **argv) {
         if (pr == 0 || !(pfd.revents & POLLIN)) continue;
         while (read(efd,&ev,sizeof(ev))==sizeof(ev)) {
             if(ev.type==EV_KEY && ev.code==a.key && ev.value==1) run_utterance(&a, efd);
+            else if(ev.type==EV_KEY && ev.code==KEY_VOLUMEUP && ev.value != 0) audio_policy_volume_up(&a);
             if (g_stop) break;
         }
         if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {

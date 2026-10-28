@@ -71,6 +71,7 @@ void stop_child(int pid);
 // audio policy
 void audio_policy_begin(app *a);
 void audio_policy_end(app *a);
+void audio_policy_volume_up(app *a);
 
 // transcriber
 void *segment_thread_main(void *vp);
