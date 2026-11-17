@@ -50,6 +50,33 @@ During active dictation, the service lowers system audio volume, then restores t
 
 The daemon exclusively grabs the aux input device while running. This means that, currently, default aux behaviors like pointer/passthrough shortcuts are disrupted while the service is active.
 
+## Other languages
+
+The installed service dictates English. Other languages need a multilingual Whisper model, `--language`, and `--paste-command` for any script the virtual keyboard cannot type. Example for Chinese:
+
+```bash
+D=~/.local/share/steam-frame-dictation
+curl -L --fail -o $D/models/whisper/ggml-base.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
+systemctl --user edit frame-dictation.service
+```
+
+In the editor, override the service command (the empty `ExecStart=` clears the default one):
+
+```ini
+[Service]
+ExecStart=
+ExecStart=%h/.local/share/steam-frame-dictation/bin/steam-frame-dictation --whisper-model %h/.local/share/steam-frame-dictation/models/whisper/ggml-base.bin --language zh --whisper-threads 4 --whisper-audio-ctx 768 --actionable-pause-seconds 0.6 --paste-command %h/.local/share/steam-frame-dictation/bin/sfd-x11-copy --quiet
+```
+
+Then `systemctl --user restart frame-dictation.service`. The override lives in `~/.config/systemd/user/frame-dictation.service.d/`, survives reinstalls, and is not removed by `--uninstall`.
+
+Notes from testing Chinese on one Steam Frame:
+
+- `ggml-base.bin` (148 MB) took about 1.6 seconds per segment with 4 threads and 3.2 seconds with 2. The multilingual `tiny` model was faster but noticeably less accurate.
+- Short segments are recognized worse; a longer `--actionable-pause-seconds` gives Whisper more context per segment at the cost of later text.
+- Pasting works in the Steam UI. Text fields inside games run on a separate X display and may not see the clipboard.
+- For Chinese, `--whisper-prompt "以下是繁體中文的句子。"` nudges output towards Traditional characters.
+
 ## Design goals
 
 - 0 idle CPU.
@@ -168,7 +195,7 @@ Most of these were achieved via trial and error / manual testing:
 
 | Flag | Behavior / default |
 | --- | --- |
-| `--paste-command CMD` | Shell command that reads text on stdin and puts it on the clipboard, for example `wl-copy` or `xclip -selection clipboard`; none. The virtual keyboard can only type US-layout ASCII, so without this flag any other character is skipped. With it, a segment containing such characters is sent to `CMD` and pasted with Ctrl+V instead; plain ASCII segments are still typed. This overwrites the clipboard, and the command must be able to reach the session's clipboard from the service environment. |
+| `--paste-command CMD` | Shell command that reads text on stdin and puts it on the clipboard; none. The virtual keyboard can only type US-layout ASCII, so without this flag any other character is skipped. With it, a segment containing such characters is sent to `CMD` and pasted with Ctrl+V instead; plain ASCII segments are still typed. The Frame ships no clipboard tool, so the install includes `bin/sfd-x11-copy` for this; `wl-copy` or `xclip -selection clipboard` work elsewhere. Pasting overwrites the clipboard. |
 
 ### Input and capture
 
