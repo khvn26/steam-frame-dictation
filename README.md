@@ -164,6 +164,12 @@ Most of these were achieved via trial and error / manual testing:
 | `--quiet` | Suppress runtime logs, including errors. Off for direct invocation; on in the installed service. Without it, dictated text is logged. |
 | `--dry-run` | Skip virtual keyboard creation and typing. Still grabs the trigger device, captures audio, transcribes, plays chimes, and ducks playback unless those are disabled separately. |
 
+### Output
+
+| Flag | Behavior / default |
+| --- | --- |
+| `--paste-command CMD` | Shell command that reads text on stdin and puts it on the clipboard, for example `wl-copy` or `xclip -selection clipboard`; none. The virtual keyboard can only type US-layout ASCII, so without this flag any other character is skipped. With it, a segment containing such characters is sent to `CMD` and pasted with Ctrl+V instead; plain ASCII segments are still typed. This overwrites the clipboard, and the command must be able to reach the session's clipboard from the service environment. |
+
 ### Input and capture
 
 | Flag | Behavior / default |

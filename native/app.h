@@ -28,6 +28,7 @@ typedef struct { pthread_mutex_t mu; pthread_cond_t cv; text_node *head, *tail; 
 typedef struct app {
     const char *device, *uinput, *source, *start_sound, *end_sound;
     const char *whisper_model, *whisper_language, *whisper_prompt;
+    const char *paste_command;
     int key, rate, chunk_bytes, whisper_threads, whisper_audio_ctx, whisper_max_tokens;
     double actionable_pause, final_pause, silence_threshold, no_speech_timeout, preroll, warmup;
     double min_segment_seconds, min_transcribe_rms;
@@ -65,6 +66,8 @@ void play_sound(const char *path, bool wait_for_it);
 // output
 int setup_uinput(const char *path);
 void type_text(int fd, const char *s);
+bool text_is_typeable(const char *s);
+int paste_text(app *a, const char *s);
 void *type_thread_main(void *vp);
 
 // audio capture

@@ -84,6 +84,11 @@ static void usage(FILE *out, const char *argv0) {
         "  --quiet                       Suppress runtime logs, including errors\n"
         "  --dry-run                     Do not create/type through a virtual keyboard;\n"
         "                                still grabs input, records, and transcribes\n\n"
+        "Output:\n"
+        "  --paste-command CMD           Shell command that puts stdin on the clipboard,\n"
+        "                                e.g. wl-copy. Text the virtual keyboard cannot\n"
+        "                                type (non-ASCII) is then pasted with Ctrl+V\n"
+        "                                (default: none; such characters are skipped)\n\n"
         "Input and capture:\n"
         "  --device PATH                 Trigger evdev device\n"
         "                                default: " DEFAULT_DEVICE "\n"
@@ -139,6 +144,7 @@ int main(int argc, char **argv) {
         else if(!strcmp(argv[i],"--whisper-threads")){NEEDVAL(); a.whisper_threads=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--whisper-audio-ctx")){NEEDVAL(); a.whisper_audio_ctx=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--whisper-max-tokens")){NEEDVAL(); a.whisper_max_tokens=atoi(argv[++i]);}
+        else if(!strcmp(argv[i],"--paste-command")){NEEDVAL(); a.paste_command=argv[++i];}
         else if(!strcmp(argv[i],"--device")){NEEDVAL(); a.device=argv[++i];}
         else if(!strcmp(argv[i],"--uinput")){NEEDVAL(); a.uinput=argv[++i];}
         else if(!strcmp(argv[i],"--source")){NEEDVAL(); a.source=argv[++i];}
@@ -169,6 +175,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "unknown language: %s\n", a.whisper_language);
         return 2;
     }
+    if (a.paste_command && !*a.paste_command) a.paste_command = NULL;
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = on_signal;
@@ -192,6 +199,7 @@ int main(int argc, char **argv) {
     if(!a.no_sounds){ fprintf(stderr,"start sound: %s\nend sound:   %s\n",a.start_sound,a.end_sound); }
     fprintf(stderr,"segment filter: min %.2fs, rms %.0f\n", a.min_segment_seconds, a.min_transcribe_rms);
     fprintf(stderr,"text logging: %s\n", a.quiet ? "disabled" : "enabled");
+    fprintf(stderr,"non-ASCII output: %s\n", (a.paste_command && *a.paste_command) ? "clipboard paste" : "skipped (no --paste-command)");
     fprintf(stderr,"playback ducking: %s", a.duck_enabled ? "enabled" : "disabled");
     if (a.duck_enabled) fprintf(stderr," (volume %.2f)", a.duck_volume);
     fprintf(stderr,"\n");
