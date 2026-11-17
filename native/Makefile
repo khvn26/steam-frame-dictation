@@ -7,7 +7,7 @@ CFLAGS := -O3 -flto -DNDEBUG -Wall -Wextra -I$(INCLUDE_DIR) -DGIT_REVISION=\"$(G
 LDFLAGS := -L$(WHISPER_DIR) -Wl,-rpath,'$$ORIGIN/../lib/whisper'
 LDLIBS := -lwhisper -lggml -lggml-base -lggml-cpu -lm -lpthread
 
-SOURCES := main.c util.c queues.c feedback.c output_uinput.c audio_pw.c audio_policy.c transcriber_whisper.c session.c
+SOURCES := main.c help_zh_tw.c util.c queues.c feedback.c output_uinput.c audio_pw.c audio_policy.c transcriber_whisper.c session.c
 OBJECTS := $(SOURCES:.c=.o)
 TARGET := steam-frame-dictation
 X11_COPY := sfd-x11-copy

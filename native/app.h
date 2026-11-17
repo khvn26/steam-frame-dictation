@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdio.h>
 
 #define DEFAULT_DEVICE "/dev/input/by-path/platform-gpio-keys-event"
 #define DEFAULT_UINPUT "/dev/uinput"
@@ -81,6 +82,9 @@ void audio_policy_volume_up(app *a);
 
 // transcriber
 void *segment_thread_main(void *vp);
+
+// localized help
+void usage_zh_tw(FILE *out, const char *argv0);
 
 // session controller
 void run_utterance(app *a, int efd);

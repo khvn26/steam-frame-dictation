@@ -71,7 +71,18 @@ static int uninstall_user_service(void) {
     return 0;
 }
 
+// Message locale as POSIX resolves it: LC_ALL, then LC_MESSAGES, then LANG.
+static bool locale_is_zh_tw(void) {
+    const char *names[] = {"LC_ALL", "LC_MESSAGES", "LANG"};
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+        const char *v = getenv(names[i]);
+        if (v && *v) return !strncmp(v, "zh_TW", 5) || !strncmp(v, "zh_HK", 5);
+    }
+    return false;
+}
+
 static void usage(FILE *out, const char *argv0) {
+    if (locale_is_zh_tw()) { usage_zh_tw(out, argv0); return; }
     fprintf(out, "Steam Frame Dictation — offline voice typing\nUsage: %s [options]\n\n", argv0);
     fputs(
         "Press aux to start; short pauses commit silently, long pauses stop.\n"
