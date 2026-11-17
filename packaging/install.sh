@@ -79,6 +79,14 @@ systemctl --user stop "$SERVICE_NAME" >/dev/null 2>&1 || true
 
 mkdir -p "$INSTALL_DIR/bin" "$INSTALL_DIR/lib" "$INSTALL_DIR/models/whisper" "$SERVICE_DIR"
 install -m 0755 "$BIN_SRC" "$INSTALL_DIR/bin/$APP_NAME"
+# Optional clipboard helper for --paste-command; built from source when libX11 headers exist.
+X11_COPY_SRC="$(dirname -- "$BIN_SRC")/sfd-x11-copy"
+if [[ ! -x "$X11_COPY_SRC" && -d "$ROOT_DIR/native" ]]; then
+  make -C "$ROOT_DIR/native" sfd-x11-copy >/dev/null 2>&1 || true
+fi
+if [[ -x "$X11_COPY_SRC" ]]; then
+  install -m 0755 "$X11_COPY_SRC" "$INSTALL_DIR/bin/sfd-x11-copy"
+fi
 rm -rf "$INSTALL_DIR/lib/whisper"
 cp -a "$LIB_SRC" "$INSTALL_DIR/lib/whisper"
 install -m 0644 "$MODEL_SRC" "$INSTALL_DIR/models/whisper/ggml-tiny.en.bin"

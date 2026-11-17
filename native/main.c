@@ -84,6 +84,11 @@ static void usage(FILE *out, const char *argv0) {
         "  --quiet                       Suppress runtime logs, including errors\n"
         "  --dry-run                     Do not create/type through a virtual keyboard;\n"
         "                                still grabs input, records, and transcribes\n\n"
+        "Output:\n"
+        "  --paste-command CMD           Shell command that puts stdin on the clipboard,\n"
+        "                                e.g. wl-copy. Text the virtual keyboard cannot\n"
+        "                                type (non-ASCII) is then pasted with Ctrl+V\n"
+        "                                (default: none; such characters are skipped)\n\n"
         "Input and capture:\n"
         "  --device PATH                 Trigger evdev device\n"
         "                                default: " DEFAULT_DEVICE "\n"
@@ -105,6 +110,9 @@ static void usage(FILE *out, const char *argv0) {
         "Whisper:\n"
         "  --whisper-model PATH          Model file\n"
         "                                default: " DEFAULT_WHISPER_MODEL "\n"
+        "  --language CODE               Spoken language, e.g. en, de, zh, or auto\n"
+        "                                (default: " DEFAULT_WHISPER_LANGUAGE "; others need a multilingual model)\n"
+        "  --whisper-prompt TEXT         Initial prompt to bias vocabulary and style\n"
         "  --whisper-threads N            Inference threads (default: 4)\n"
         "  --whisper-audio-ctx N          Audio context size (default: 0 = full)\n"
         "  --whisper-max-tokens N         Segment token limit (default: 0 = unlimited)\n\n"
@@ -123,7 +131,7 @@ static void usage(FILE *out, const char *argv0) {
 }
 
 static app default_app(void) {
-    return (app){.device=DEFAULT_DEVICE,.uinput=DEFAULT_UINPUT,.source=NULL,.start_sound=DEFAULT_START_SOUND,.end_sound=DEFAULT_END_SOUND,.whisper_model=DEFAULT_WHISPER_MODEL,.key=DEFAULT_TRIGGER_KEY,.rate=16000,.chunk_bytes=1600,.whisper_threads=4,.whisper_audio_ctx=0,.whisper_max_tokens=0,.actionable_pause=0.35,.final_pause=3.0,.silence_threshold=100.0,.no_speech_timeout=8.0,.preroll=0.3,.warmup=0.2,.min_segment_seconds=0.6,.min_transcribe_rms=150.0,.duck_volume=0.15,.duck_enabled=true,.ufd=-1};
+    return (app){.device=DEFAULT_DEVICE,.uinput=DEFAULT_UINPUT,.source=NULL,.start_sound=DEFAULT_START_SOUND,.end_sound=DEFAULT_END_SOUND,.whisper_model=DEFAULT_WHISPER_MODEL,.whisper_language=DEFAULT_WHISPER_LANGUAGE,.key=DEFAULT_TRIGGER_KEY,.rate=16000,.chunk_bytes=1600,.whisper_threads=4,.whisper_audio_ctx=0,.whisper_max_tokens=0,.actionable_pause=0.35,.final_pause=3.0,.silence_threshold=100.0,.no_speech_timeout=8.0,.preroll=0.3,.warmup=0.2,.min_segment_seconds=0.6,.min_transcribe_rms=150.0,.duck_volume=0.15,.duck_enabled=true,.ufd=-1};
 }
 
 int main(int argc, char **argv) {
@@ -131,9 +139,12 @@ int main(int argc, char **argv) {
     for(int i=1;i<argc;i++) {
         #define NEEDVAL() if(i+1>=argc){usage(stderr, argv[0]); return 2;}
         if(!strcmp(argv[i],"--whisper-model")){NEEDVAL(); a.whisper_model=argv[++i];}
+        else if(!strcmp(argv[i],"--language")){NEEDVAL(); a.whisper_language=argv[++i];}
+        else if(!strcmp(argv[i],"--whisper-prompt")){NEEDVAL(); a.whisper_prompt=argv[++i];}
         else if(!strcmp(argv[i],"--whisper-threads")){NEEDVAL(); a.whisper_threads=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--whisper-audio-ctx")){NEEDVAL(); a.whisper_audio_ctx=atoi(argv[++i]);}
         else if(!strcmp(argv[i],"--whisper-max-tokens")){NEEDVAL(); a.whisper_max_tokens=atoi(argv[++i]);}
+        else if(!strcmp(argv[i],"--paste-command")){NEEDVAL(); a.paste_command=argv[++i];}
         else if(!strcmp(argv[i],"--device")){NEEDVAL(); a.device=argv[++i];}
         else if(!strcmp(argv[i],"--uinput")){NEEDVAL(); a.uinput=argv[++i];}
         else if(!strcmp(argv[i],"--source")){NEEDVAL(); a.source=argv[++i];}
@@ -160,6 +171,11 @@ int main(int argc, char **argv) {
         else if(!strcmp(argv[i],"--help")||!strcmp(argv[i],"-h")){usage(stdout, argv[0]); return 0;}
         else { fprintf(stderr,"unknown option: %s\n",argv[i]); usage(stderr, argv[0]); return 2; }
     }
+    if (strcmp(a.whisper_language, "auto") != 0 && whisper_lang_id(a.whisper_language) < 0) {
+        fprintf(stderr, "unknown language: %s\n", a.whisper_language);
+        return 2;
+    }
+    if (a.paste_command && !*a.paste_command) a.paste_command = NULL;
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = on_signal;
@@ -171,14 +187,19 @@ int main(int argc, char **argv) {
     fprintf(stderr,"steam-frame-dictation %s\n", GIT_REVISION);
     fprintf(stderr,"provider: libwhisper\n");
     fprintf(stderr,"Loading Whisper model once: %s\n", a.whisper_model);
-    fprintf(stderr,"whisper settings: threads=%d audio_ctx=%d max_tokens=%d\n", a.whisper_threads, a.whisper_audio_ctx, a.whisper_max_tokens);
+    fprintf(stderr,"whisper settings: language=%s threads=%d audio_ctx=%d max_tokens=%d\n", a.whisper_language, a.whisper_threads, a.whisper_audio_ctx, a.whisper_max_tokens);
     struct whisper_context_params cparams = whisper_context_default_params();
     a.whisper_ctx = whisper_init_from_file_with_params(a.whisper_model, cparams);
     if(!a.whisper_ctx){fprintf(stderr,"failed to load whisper model\n"); return 1;}
+    if (strcmp(a.whisper_language, "en") != 0 && !whisper_is_multilingual(a.whisper_ctx)) {
+        fprintf(stderr, "language '%s' needs a multilingual model; %s is English-only\n", a.whisper_language, a.whisper_model);
+        return 1;
+    }
     fprintf(stderr,"Ready. Press aux/side to start; short pauses commit silently, long pause stops. Press aux while dictating to stop early and send Return.\n");
     if(!a.no_sounds){ fprintf(stderr,"start sound: %s\nend sound:   %s\n",a.start_sound,a.end_sound); }
     fprintf(stderr,"segment filter: min %.2fs, rms %.0f\n", a.min_segment_seconds, a.min_transcribe_rms);
     fprintf(stderr,"text logging: %s\n", a.quiet ? "disabled" : "enabled");
+    fprintf(stderr,"non-ASCII output: %s\n", (a.paste_command && *a.paste_command) ? "clipboard paste" : "skipped (no --paste-command)");
     fprintf(stderr,"playback ducking: %s", a.duck_enabled ? "enabled" : "disabled");
     if (a.duck_enabled) fprintf(stderr," (volume %.2f)", a.duck_volume);
     fprintf(stderr,"\n");

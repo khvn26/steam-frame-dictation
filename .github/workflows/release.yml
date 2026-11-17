@@ -25,7 +25,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build curl ca-certificates git patchelf
+          sudo apt-get install -y build-essential cmake ninja-build curl ca-certificates git patchelf libx11-dev
 
       - name: Build whisper.cpp shared libraries
         run: |
@@ -66,6 +66,7 @@ jobs:
           ./packaging/build-release.sh "$VERSION"
           dist/steam-frame-dictation-*/bin/steam-frame-dictation --version
           dist/steam-frame-dictation-*/bin/steam-frame-dictation --help
+          test -x dist/steam-frame-dictation-*/bin/sfd-x11-copy
           test -s dist/steam-frame-dictation-*/LICENSE
           test -s dist/steam-frame-dictation-*/third_party/whisper-model-LICENSE
         env:
