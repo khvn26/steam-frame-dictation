@@ -1,5 +1,7 @@
 # Steam Frame Dictation
 
+English | [繁體中文](README.zh-TW.md)
+
 https://github.com/user-attachments/assets/c349ab1f-26a2-4fca-aa1a-0caed856ae62
 
 Offline dictation on the Steam Frame.
