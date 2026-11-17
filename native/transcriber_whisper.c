@@ -20,7 +20,8 @@ static bool is_bad_text(const char *text) {
     int alnum = 0;
     int punct = 0;
     for (const unsigned char *p = (const unsigned char *)text; *p; p++) {
-        if (isalnum(*p)) alnum++;
+        // Bytes >= 0x80 belong to UTF-8 sequences: count them as text, not noise.
+        if (*p >= 0x80 || isalnum(*p)) alnum++;
         else if (!isspace(*p)) punct++;
     }
     if (alnum == 0) return true;
@@ -39,7 +40,9 @@ static char *transcribe_whisper_lib(app *a, const uint8_t *pcm, size_t n) {
 
     struct whisper_full_params p = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     p.n_threads = a->whisper_threads;
-    p.language = "en";
+    p.language = a->whisper_language;
+    p.detect_language = false;
+    if (a->whisper_prompt && *a->whisper_prompt) p.initial_prompt = a->whisper_prompt;
     p.translate = false;
     p.no_context = true;
     p.no_timestamps = true;
@@ -92,8 +95,10 @@ void *segment_thread_main(void *vp) {
                 if(text && *text && !is_bad_text(text)) {
                     if (a->quiet) fprintf(stderr,"heard: <redacted> (%.2fs)\n", monotonic_s()-t0);
                     else fprintf(stderr,"heard: '%s' (%.2fs)\n", text, monotonic_s()-t0);
-                    size_t len=strlen(text); char *with_space=malloc(len+2);
-                    if(with_space) { memcpy(with_space,text,len); with_space[len]=' '; with_space[len+1]=0; textq_push(&a->textq, with_space); }
+                    // Join segments with a space, except after scripts that do not use spaces.
+                    bool sep = !codepoint_is_cjk(utf8_last_codepoint(text));
+                    size_t len=strlen(text); char *joined=malloc(len+2);
+                    if(joined) { memcpy(joined,text,len); if(sep) joined[len++]=' '; joined[len]=0; textq_push(&a->textq, joined); }
                 } else if (text && *text) {
                     if (a->quiet) fprintf(stderr,"drop transcript: <redacted>\n");
                     else fprintf(stderr,"drop transcript: '%s'\n", text);
