@@ -195,6 +195,8 @@ RMS values are in signed 16-bit PCM amplitude units, not dB. Segment duration in
 | Flag | Behavior / default |
 | --- | --- |
 | `--whisper-model PATH` | Model file. Compiled default: `/home/steamos/voice-dictation/models/whisper/ggml-tiny.en.bin`. The service passes the installed model path explicitly. |
+| `--language CODE` | Spoken language as a Whisper code (`en`, `de`, `zh`, ...) or `auto` to detect per segment; `en`. Anything but `en` needs a multilingual model (for example `ggml-base.bin` instead of `ggml-tiny.en.bin`). |
+| `--whisper-prompt TEXT` | Initial prompt passed to Whisper to bias vocabulary and writing style; none. For example, a Traditional Chinese sentence nudges `zh` output towards Traditional characters. |
 | `--whisper-threads N` | Inference threads; `4` (`2` in the service). |
 | `--whisper-audio-ctx N` | Audio context size; `0` for full context (`768` in the service). |
 | `--whisper-max-tokens N` | Token limit per segment; `0` for unlimited (`32` in the service). Lower limits can truncate output. |
