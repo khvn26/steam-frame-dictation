@@ -5,7 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 static int emit_ev(int fd, uint16_t type, uint16_t code, int32_t value) {
@@ -23,11 +25,44 @@ static keymap maps[] = {
  {'!',KEY_1,true},{'@',KEY_2,true},{'#',KEY_3,true},{'$',KEY_4,true},{'%',KEY_5,true},{'^',KEY_6,true},{'&',KEY_7,true},{'*',KEY_8,true},{'(',KEY_9,true},{')',KEY_0,true},
  {' ',KEY_SPACE,false},{'\n',KEY_ENTER,false},{'-',KEY_MINUS,false},{'_',KEY_MINUS,true},{'=',KEY_EQUAL,false},{'+',KEY_EQUAL,true},{'[',KEY_LEFTBRACE,false},{'{',KEY_LEFTBRACE,true},{']',KEY_RIGHTBRACE,false},{'}',KEY_RIGHTBRACE,true},{'\\',KEY_BACKSLASH,false},{'|',KEY_BACKSLASH,true},{';',KEY_SEMICOLON,false},{':',KEY_SEMICOLON,true},{'\'',KEY_APOSTROPHE,false},{'"',KEY_APOSTROPHE,true},{'`',KEY_GRAVE,false},{'~',KEY_GRAVE,true},{',',KEY_COMMA,false},{'<',KEY_COMMA,true},{'.',KEY_DOT,false},{'>',KEY_DOT,true},{'/',KEY_SLASH,false},{'?',KEY_SLASH,true}
 };
+static const keymap *find_key(unsigned char ch) {
+    for(size_t i=0;i<sizeof(maps)/sizeof(maps[0]);i++) if(maps[i].ch==(char)ch) return &maps[i];
+    return NULL;
+}
+// True when every byte of s can be produced by the virtual keyboard.
+bool text_is_typeable(const char *s) {
+    for(const unsigned char *p=(const unsigned char*)s; *p; p++) if(!find_key(*p)) return false;
+    return true;
+}
+// Feed s to the user's clipboard command on stdin, then press Ctrl+V.
+int paste_text(app *a, const char *s) {
+    int pipefd[2]; if(pipe(pipefd)<0) return -1;
+    pid_t pid=fork();
+    if(pid<0) { close(pipefd[0]); close(pipefd[1]); return -1; }
+    if(pid==0) {
+        dup2(pipefd[0], STDIN_FILENO); close(pipefd[0]); close(pipefd[1]);
+        execl("/bin/sh","sh","-c",a->paste_command,(char*)NULL);
+        _exit(127);
+    }
+    close(pipefd[0]);
+    // The command may exit early; a failed write must not kill the daemon.
+    struct sigaction ign, old; memset(&ign,0,sizeof(ign)); ign.sa_handler=SIG_IGN; sigaction(SIGPIPE,&ign,&old);
+    size_t len=strlen(s), off=0;
+    while(off<len) { ssize_t w=write(pipefd[1],s+off,len-off); if(w<=0) break; off+=(size_t)w; }
+    close(pipefd[1]);
+    sigaction(SIGPIPE,&old,NULL);
+    int st=0;
+    if(waitpid(pid,&st,0)<0 || !WIFEXITED(st) || WEXITSTATUS(st)!=0 || off<len) return -1;
+    msleep(80); // let the clipboard owner settle before pasting
+    key_ev(a->ufd,KEY_LEFTCTRL,true); key_ev(a->ufd,KEY_V,true); key_ev(a->ufd,KEY_V,false); key_ev(a->ufd,KEY_LEFTCTRL,false);
+    msleep(80);
+    return 0;
+}
 void type_text(int fd, const char *s) {
     for(const unsigned char *p=(const unsigned char*)s; *p; p++) {
-        bool found=false;
-        for(size_t i=0;i<sizeof(maps)/sizeof(maps[0]);i++) if(maps[i].ch==(char)*p) { tap(fd,maps[i].key,maps[i].shift); found=true; break; }
-        if(!found) fprintf(stderr,"skip char 0x%02x\n", *p);
+        const keymap *m=find_key(*p);
+        if(m) tap(fd,m->key,m->shift);
+        else fprintf(stderr,"skip char 0x%02x\n", *p);
     }
 }
 void *type_thread_main(void *vp) {
@@ -35,7 +70,12 @@ void *type_thread_main(void *vp) {
     while(textq_pop(&a->textq, &text)) {
         if (a->quiet) fprintf(stderr,"type: <redacted>\n");
         else fprintf(stderr,"type: '%s'\n", text);
-        if(!a->dry_run && a->ufd>=0) type_text(a->ufd, text);
+        if(!a->dry_run && a->ufd>=0) {
+            // Keys cannot express non-ASCII text; hand it to the clipboard instead.
+            if(a->paste_command && !text_is_typeable(text)) {
+                if(paste_text(a, text)!=0) fprintf(stderr,"paste command failed\n");
+            } else type_text(a->ufd, text);
+        }
         free(text);
     }
     return NULL;
@@ -43,7 +83,7 @@ void *type_thread_main(void *vp) {
 int setup_uinput(const char *path) {
     int fd=open(path,O_WRONLY|O_NONBLOCK); if(fd<0) return -1;
     ioctl(fd, UI_SET_EVBIT, EV_KEY);
-    int keys[] = {KEY_LEFTSHIFT,KEY_SPACE,KEY_ENTER,KEY_MINUS,KEY_EQUAL,KEY_LEFTBRACE,KEY_RIGHTBRACE,KEY_BACKSLASH,KEY_SEMICOLON,KEY_APOSTROPHE,KEY_GRAVE,KEY_COMMA,KEY_DOT,KEY_SLASH,KEY_1,KEY_2,KEY_3,KEY_4,KEY_5,KEY_6,KEY_7,KEY_8,KEY_9,KEY_0,KEY_A,KEY_B,KEY_C,KEY_D,KEY_E,KEY_F,KEY_G,KEY_H,KEY_I,KEY_J,KEY_K,KEY_L,KEY_M,KEY_N,KEY_O,KEY_P,KEY_Q,KEY_R,KEY_S,KEY_T,KEY_U,KEY_V,KEY_W,KEY_X,KEY_Y,KEY_Z};
+    int keys[] = {KEY_LEFTSHIFT,KEY_LEFTCTRL,KEY_SPACE,KEY_ENTER,KEY_MINUS,KEY_EQUAL,KEY_LEFTBRACE,KEY_RIGHTBRACE,KEY_BACKSLASH,KEY_SEMICOLON,KEY_APOSTROPHE,KEY_GRAVE,KEY_COMMA,KEY_DOT,KEY_SLASH,KEY_1,KEY_2,KEY_3,KEY_4,KEY_5,KEY_6,KEY_7,KEY_8,KEY_9,KEY_0,KEY_A,KEY_B,KEY_C,KEY_D,KEY_E,KEY_F,KEY_G,KEY_H,KEY_I,KEY_J,KEY_K,KEY_L,KEY_M,KEY_N,KEY_O,KEY_P,KEY_Q,KEY_R,KEY_S,KEY_T,KEY_U,KEY_V,KEY_W,KEY_X,KEY_Y,KEY_Z};
     for(size_t i=0;i<sizeof(keys)/sizeof(keys[0]);i++) ioctl(fd, UI_SET_KEYBIT, keys[i]);
     struct uinput_setup us; memset(&us,0,sizeof(us)); snprintf(us.name,sizeof(us.name),"steam-frame-dictation"); us.id.bustype=BUS_USB; us.id.vendor=0x28de; us.id.product=0xd1c7; us.id.version=1;
     if(ioctl(fd, UI_DEV_SETUP, &us)<0 || ioctl(fd, UI_DEV_CREATE)<0) { close(fd); return -1; }

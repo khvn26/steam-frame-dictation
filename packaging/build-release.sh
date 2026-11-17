@@ -21,10 +21,12 @@ require_path "$ROOT/include/whisper.h"
 
 make -C "$ROOT/native" clean
 make -C "$ROOT/native" GIT_REVISION="$VERSION"
+make -C "$ROOT/native" sfd-x11-copy
 
 rm -rf "$STAGE"
 mkdir -p "$STAGE/bin" "$STAGE/lib" "$STAGE/models/whisper"
 install -m 0755 "$ROOT/native/steam-frame-dictation" "$STAGE/bin/steam-frame-dictation"
+install -m 0755 "$ROOT/native/sfd-x11-copy" "$STAGE/bin/sfd-x11-copy"
 cp -a "$ROOT/lib/whisper" "$STAGE/lib/whisper"
 install -m 0644 "$ROOT/models/whisper/ggml-tiny.en.bin" "$STAGE/models/whisper/ggml-tiny.en.bin"
 install -m 0755 "$ROOT/packaging/install.sh" "$STAGE/install.sh"

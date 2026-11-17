@@ -1,5 +1,6 @@
 # Build outputs
 native/steam-frame-dictation
+native/sfd-x11-copy
 native/*.o
 bin/steam-frame-dictation
 

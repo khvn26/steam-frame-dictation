@@ -34,3 +34,25 @@ double pcm_rms(const uint8_t *data, size_t n) {
     for(size_t i=0;i<samples;i++) sum += (double)s[i]*(double)s[i];
     return sqrt(sum / (double)samples);
 }
+
+// Decode the last UTF-8 codepoint of s; 0 for an empty or malformed tail.
+uint32_t utf8_last_codepoint(const char *s) {
+    size_t n = s ? strlen(s) : 0;
+    if (!n) return 0;
+    const unsigned char *u = (const unsigned char *)s;
+    size_t i = n - 1;
+    while (i > 0 && (u[i] & 0xC0) == 0x80 && n - i < 4) i--;
+    size_t len = n - i;
+    if (u[i] < 0x80) return len == 1 ? u[i] : 0;
+    if ((u[i] & 0xE0) == 0xC0 && len == 2) return ((uint32_t)(u[i] & 0x1F) << 6) | (u[i+1] & 0x3F);
+    if ((u[i] & 0xF0) == 0xE0 && len == 3) return ((uint32_t)(u[i] & 0x0F) << 12) | ((uint32_t)(u[i+1] & 0x3F) << 6) | (u[i+2] & 0x3F);
+    if ((u[i] & 0xF8) == 0xF0 && len == 4) return ((uint32_t)(u[i] & 0x07) << 18) | ((uint32_t)(u[i+1] & 0x3F) << 12) | ((uint32_t)(u[i+2] & 0x3F) << 6) | (u[i+3] & 0x3F);
+    return 0;
+}
+// Scripts written without spaces between words (Chinese, Japanese) and their punctuation.
+bool codepoint_is_cjk(uint32_t cp) {
+    return (cp >= 0x2E80 && cp <= 0x9FFF)    // radicals, CJK punctuation, kana, ideographs
+        || (cp >= 0xF900 && cp <= 0xFAFF)    // compatibility ideographs
+        || (cp >= 0xFF00 && cp <= 0xFFEF)    // fullwidth forms
+        || (cp >= 0x20000 && cp <= 0x3FFFF); // ideograph extensions
+}

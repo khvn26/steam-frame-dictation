@@ -5,12 +5,14 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdio.h>
 
 #define DEFAULT_DEVICE "/dev/input/by-path/platform-gpio-keys-event"
 #define DEFAULT_UINPUT "/dev/uinput"
 #define DEFAULT_START_SOUND "/home/steamos/.local/share/Steam/steamui/sounds/recording_start.wav"
 #define DEFAULT_END_SOUND "/home/steamos/.local/share/Steam/steamui/sounds/recording_stop.wav"
 #define DEFAULT_WHISPER_MODEL "/home/steamos/voice-dictation/models/whisper/ggml-tiny.en.bin"
+#define DEFAULT_WHISPER_LANGUAGE "en"
 #define DEFAULT_TRIGGER_KEY 353
 #ifndef GIT_REVISION
 #define GIT_REVISION "unknown"
@@ -26,7 +28,8 @@ typedef struct { pthread_mutex_t mu; pthread_cond_t cv; text_node *head, *tail; 
 
 typedef struct app {
     const char *device, *uinput, *source, *start_sound, *end_sound;
-    const char *whisper_model;
+    const char *whisper_model, *whisper_language, *whisper_prompt;
+    const char *paste_command;
     int key, rate, chunk_bytes, whisper_threads, whisper_audio_ctx, whisper_max_tokens;
     double actionable_pause, final_pause, silence_threshold, no_speech_timeout, preroll, warmup;
     double min_segment_seconds, min_transcribe_rms;
@@ -45,6 +48,8 @@ void bytes_clear(struct bytes *b);
 double monotonic_s(void);
 void msleep(int ms);
 double pcm_rms(const uint8_t *data, size_t n);
+uint32_t utf8_last_codepoint(const char *s);
+bool codepoint_is_cjk(uint32_t cp);
 
 // queues
 void segq_init(seg_queue *q);
@@ -62,6 +67,8 @@ void play_sound(const char *path, bool wait_for_it);
 // output
 int setup_uinput(const char *path);
 void type_text(int fd, const char *s);
+bool text_is_typeable(const char *s);
+int paste_text(app *a, const char *s);
 void *type_thread_main(void *vp);
 
 // audio capture
@@ -75,6 +82,9 @@ void audio_policy_volume_up(app *a);
 
 // transcriber
 void *segment_thread_main(void *vp);
+
+// localized help
+void usage_zh_tw(FILE *out, const char *argv0);
 
 // session controller
 void run_utterance(app *a, int efd);
